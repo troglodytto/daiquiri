@@ -53,7 +53,7 @@ func run(args []string, stderr io.Writer) int {
 		return exitFail
 	}
 
-	fmt.Println(res.Summarise())
+	triage.Group(res.Issues)
 
 	return exitOK
 }
@@ -67,6 +67,7 @@ func run(args []string, stderr io.Writer) int {
 const readBufferBytes = 256 * 1024
 
 func analyse(path string) (triage.Result, error) {
+	// fmt.Printf("Analysing %s\n", path)
 	file, err := os.Open(path)
 	if err != nil {
 		return triage.Result{}, err

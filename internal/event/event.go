@@ -105,3 +105,8 @@ type Event struct {
 	// rather than double-counted. See Count.
 	EventUID string
 }
+
+// GroupKey is the doc's required grouping tuple.
+func (e Event) GroupKey() string {
+	return e.Object.Kind + "|" + e.Object.Name + "|" + e.Namespace + "|" + e.Reason
+}

@@ -56,22 +56,39 @@ var taxonomy = map[string][]rule{
 	// One reason, two failures. Severity is what separates them, and neither is
 	// noise: a Normal-severity BackOff is a repeated image-pull retry.
 	"BackOff": {
-		{whenSeverity: &warning, category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "container is crash-looping and repeatedly failing to start"},
-		{category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "repeated image-pull retry; the image cannot be fetched"},
+		{
+			whenSeverity: &warning,
+			category:     CategoryIssue,
+			severity:     event.SeverityCritical,
+			cause:        "container is crash-looping and repeatedly failing to start",
+		},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityCritical,
+			cause:    "repeated image-pull retry; the image cannot be fetched",
+		},
 	},
 
 	// ImagePullBackOff and ErrImagePull live in the body, not the reason.
 	"Failed": {
-		{whenBodyHas: imagePullMarkers, category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "image pull failed; the tag or registry credentials are likely wrong"},
-		{category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "container or pod sandbox creation failed"},
+		{
+			whenBodyHas: imagePullMarkers,
+			category:    CategoryIssue,
+			severity:    event.SeverityCritical,
+			cause:       "image pull failed; the tag or registry credentials are likely wrong",
+		},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityCritical,
+			cause:    "container or pod sandbox creation failed",
+		},
 	},
 	"FailedCreatePodSandBox": {
-		{category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "pod sandbox creation failed; the pod never reached a running state"},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityCritical,
+			cause:    "pod sandbox creation failed; the pod never reached a running state",
+		},
 	},
 
 	// Classified on reason alone. The brief's table gives the body as "Memory
@@ -80,40 +97,69 @@ var taxonomy = map[string][]rule{
 	// the brief's example text would never fire, and the reason is unambiguous
 	// on its own.
 	"OOMKilling": {
-		{category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "container exceeded its memory limit and was killed by the kernel"},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityCritical,
+			cause:    "container exceeded its memory limit and was killed by the kernel",
+		},
 	},
 
 	"NodeNotReady": {
-		{category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "node went unhealthy; workloads on it are at risk"},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityCritical,
+			cause:    "node went unhealthy; workloads on it are at risk",
+		},
 	},
 	"NodeHasDiskPressure": {
-		{category: CategoryIssue, severity: event.SeverityCritical,
-			cause: "node is under disk pressure and will evict pods"},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityCritical,
+			cause:    "node is under disk pressure and will evict pods",
+		},
 	},
 
 	// --- Warning ------------------------------------------------------------
 
 	"FailedScheduling": {
-		{category: CategoryIssue, severity: event.SeverityWarning,
-			cause: "pod cannot be placed; insufficient resources or unsatisfied taints"},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityWarning,
+			cause:    "pod cannot be placed; insufficient resources or unsatisfied taints",
+		},
 	},
 	"Unhealthy": {
-		{whenBodyHas: []string{"Liveness probe failed"}, category: CategoryIssue, severity: event.SeverityWarning,
-			cause: "liveness probe failing; the kubelet will restart the container"},
-		{category: CategoryIssue, severity: event.SeverityWarning,
-			cause: "readiness probe failing; the pod is being kept out of service"},
+		{
+			whenBodyHas: []string{"Liveness probe failed"},
+			category:    CategoryIssue,
+			severity:    event.SeverityWarning,
+			cause:       "liveness probe failing; the kubelet will restart the container",
+		},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityWarning,
+			cause:    "readiness probe failing; the pod is being kept out of service",
+		},
 	},
 	"FailedMount": {
-		{category: CategoryIssue, severity: event.SeverityWarning,
-			cause: "volume mount failed; a referenced configmap or secret is likely missing"},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityWarning,
+			cause:    "volume mount failed; a referenced configmap or secret is likely missing",
+		},
 	},
 	"Evicted": {
-		{whenBodyHas: []string{"[DiskPressure]"}, category: CategoryIssue, severity: event.SeverityWarning,
-			cause: "pod evicted because its node was under disk pressure"},
-		{category: CategoryIssue, severity: event.SeverityWarning,
-			cause: "pod evicted because its node was under resource pressure"},
+		{
+			whenBodyHas: []string{"[DiskPressure]"},
+			category:    CategoryIssue,
+			severity:    event.SeverityWarning,
+			cause:       "pod evicted because its node was under disk pressure",
+		},
+		{
+			category: CategoryIssue,
+			severity: event.SeverityWarning,
+			cause:    "pod evicted because its node was under resource pressure",
+		},
 	},
 
 	// --- Ignore -------------------------------------------------------------
@@ -136,8 +182,11 @@ var taxonomy = map[string][]rule{
 	// in all three captures where it appears it lands minutes before that
 	// capture's incident, making it the anchor for deploy-correlated failure.
 	"ScalingReplicaSet": {
-		{category: CategoryDeployMarker, severity: event.SeverityInfo,
-			cause: "deployment scaled; a rollout occurred here"},
+		{
+			category: CategoryDeployMarker,
+			severity: event.SeverityInfo,
+			cause:    "deployment scaled; a rollout occurred here",
+		},
 	},
 }
 
@@ -146,10 +195,12 @@ func (r rule) matches(e event.Event) bool {
 	if r.whenSeverity != nil && *r.whenSeverity != e.Severity {
 		return false
 	}
+
 	for _, marker := range r.whenBodyHas {
 		if strings.Contains(e.Body, marker) {
 			return true
 		}
 	}
+
 	return len(r.whenBodyHas) == 0
 }
