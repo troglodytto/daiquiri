@@ -8,6 +8,7 @@ import (
 	"github.com/troglodytto/daiquiri/internal/classify"
 	"github.com/troglodytto/daiquiri/internal/event"
 	"github.com/troglodytto/daiquiri/internal/group"
+	"github.com/troglodytto/daiquiri/internal/link"
 	"github.com/troglodytto/daiquiri/internal/otel"
 )
 
@@ -67,9 +68,14 @@ type Result struct {
 	// a 16 MB input file.
 	Records []event.Event
 
-	// Findings are the coalesced reportable groups: issues, deploy markers and
-	// unclassified reasons. Lifecycle noise never becomes a finding.
-	Findings []group.Finding
+	// Forest holds the coalesced reportable groups -- issues, deploy markers and
+	// unclassified reasons -- together with the causal edge derived for each.
+	// Lifecycle noise never becomes a finding.
+	//
+	// The findings and their edges are held as one value rather than two fields
+	// because they are index-coupled: sorting one without the other would
+	// produce a wrong diagnosis rather than a crash.
+	Forest link.Forest
 
 	// Elapsed is wall-clock time for the run.
 	Elapsed time.Duration
@@ -81,7 +87,7 @@ func (res Result) Summarise() string {
 		"Records ingested: %d | Filtered as noise: %d | Findings: %d",
 		res.Ingested,
 		res.Noise,
-		len(res.Findings),
+		len(res.Forest.Findings),
 	)
 
 	// Both numbers are disclosed rather than hidden: a truncated capture must
@@ -160,7 +166,7 @@ func (p *Pipeline) Run(r io.Reader) (Result, error) {
 		return Result{}, fmt.Errorf("triage: decoding: %w", err)
 	}
 
-	res.Findings = group.Coalesce(reportable)
+	res.Forest = link.Build(group.Coalesce(reportable))
 
 	stats := d.Stats()
 	res.Ingested = stats.Ingested
