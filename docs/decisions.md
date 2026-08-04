@@ -1690,6 +1690,116 @@ with the thing it audits.
 ---
 
 
+### D-57 — Signature-level meanings, because the body decides what a probe failure is
+
+**Status:** Accepted — narrows the rule-level `meaning` of D-53
+
+`meaning` is keyed on the taxonomy rule, and for probe failures that is the
+wrong key. One reason, `Unhealthy`, carries three different situations:
+
+| Body | What it proves | What to do |
+|---|---|---|
+| `connection refused` | TCP RST — **nothing is listening** | the process is not up; it is being restarted |
+| `context deadline exceeded` | connection not refused, **no answer in time** | the process is up but stuck or saturated |
+| `HTTP statuscode: 404` | server up and routing, **path does not exist** | a deploy defect, not a health problem |
+
+The rule-level sentence — *"the application is running but not answering its
+health check"* — is wrong for two of the three. For 404 the application **is**
+answering. For a refused connection it is not running at all.
+
+**Rejected: splitting the taxonomy rule by body.** `Failed` already does exactly
+this (`failed/image-pull` against `failed/sandbox-creation`), so it is the
+obvious move — and it is wrong here, because `Rule` is in the coalescing key.
+04-test-a's 222 records would fragment into three findings, and that is one
+broken deployment rather than three problems. Same trap as D-12.
+
+**Accepted: a second, smaller interpretation table, keyed on the signature.**
+The taxonomy interprets *reasons*; this interprets *signature shapes*. It does
+not touch grouping, it is data rather than a switch, and a signature that
+matches no row simply carries no reading — which is the same abstention the
+classifier makes for a reason it cannot read.
+
+**Rows are added only for shapes the corpus actually contains:** the three probe
+outcomes above, and the scheduler's CPU / memory / both distinction in 06. No
+row for `500`, `503`, `no route to host`, or TCP-probe variants — none appears
+in any capture, and a row written from documentation is a body matcher nobody
+has ever seen fire. `OOMKilling` already proved that trap: the brief's own
+example body text would never have matched a real record.
+
+**What it buys, on 04-test-a.** The three probe modes interleave for the whole
+7m49s rather than the 404s following a startup phase:
+
+```
+checkout-service/404       n=178  10:22:07.319 -> 10:29:56.262
+checkout-service/REFUSED   n=24   10:22:34.806 -> 10:29:40.242
+checkout-service/TIMEOUT   n=20   10:22:40.925 -> 10:29:55.424
+```
+
+The 404 arrives first, 7.3s after the rollout, and never stops. So the reading
+is that the 404 is the defect and the other two are churn it causes: the kubelet
+keeps killing pods that never go ready, and probes land on pods mid-restart
+(refused) or mid-startup (timeout). Fix the path and all three stop. Without
+per-signature meanings the report shows three counts and leaves that inference
+to the reader.
+
+---
+
+### D-58 — Cadence is measured per object, and the trend threshold is conservative
+
+**Status:** Accepted — corrects a claim made in D-05
+
+A finding that fired 26 times over 25 minutes has a rhythm, and the rhythm is
+the diagnosis: *one OOM kill per pod every four minutes* says more about a
+memory leak than the count and the span together.
+
+**Measured per object, then pooled — never across the finding as a whole.**
+Interleaving makes the finding-wide gap meaningless:
+
+| Finding | finding-wide median | per-pod median | what the per-pod number is |
+|---|---|---|---|
+| 04 `Unhealthy` | 1.4s | **10.5s** | the probe period |
+| 06 `FailedScheduling` | 1.9s | **20.4s** | the scheduler's retry interval |
+
+1.4s is an artefact of five pods being probed independently. 10.5s is the
+`periodSeconds` on the probe, which is a real fact about the deployment.
+
+**Measured, all six captures, intervals pooled per pod:**
+
+| Finding | pods | intervals | median | early→late ratio |
+|---|---|---|---|---|
+| 02 `OOMKilling` | 4 | 22 | **4m9.8s** | 0.79 |
+| 02 `BackOff` | 4 | 87 | 10.8s | 0.70 |
+| 03 `Failed` | 3 | 21 | 40.5s | **11.49** |
+| 03 `BackOff` | 3 | 15 | 80.4s | **5.13** |
+| 04 `Unhealthy` | 5 | 217 | 10.5s | 1.01 |
+| 06 `FailedScheduling` | 6 | 171 | 20.4s | 0.99 |
+
+**Thresholds:** easing at ratio ≥ 3, tightening at ≤ 1/3. Symmetric in ratio
+terms, and the observed gap is (1.01, 5.13) — 3.0 is close to its geometric
+midpoint of 2.28 and leaves 3× margin on the steady side against 217 and 171
+samples.
+
+**This corrects D-05.** That entry cites `Started -> Killing` at *"4m41s
+contracting to 4m12s"* as the memory leak's fill rate accelerating, and the
+claim has been repeated since. It is **two intervals on one pod**. Across all 22
+OOM intervals the ratio is 0.79 — a mild contraction, well inside the noise of a
+series whose intervals already range from 169s to 326s. The corpus does not
+support "accelerating", so the tool will not say it: 02 reports **steady**, and
+the underlying numbers are published so a reader can see the 0.79 and draw their
+own conclusion.
+
+The unambiguous signal in this corpus runs the other way. 03's retries ease from
+10.6s to 2m25s — Kubernetes' exponential backoff, visible at 5.13x and 11.49x,
+and worth naming because it tells an on-call engineer the gaps will keep growing
+whatever they do until the image is fixed.
+
+**Minimums: 6 intervals for a cadence, 8 for a trend.** Below those the answer
+would be arithmetic on noise. A finding under the minimum reports no cadence
+rather than a confident one.
+
+---
+
+
 ## Open
 
 ### O-01 — Package layout
