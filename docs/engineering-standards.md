@@ -136,13 +136,16 @@ Documentation is a deliverable, not an afterthought, and it is graded.
 - **HLD** — `docs/hld.md`. System context, the pipeline, data flow, the shape of
   the output, and cross-cutting decisions. Updated when a stage is added,
   removed, or re-scoped.
-- **LLD** — `docs/lld/<package>.md`. Written *before* the package is
-  implemented. Covers the types, the algorithm, the edge cases, the failure
-  modes, and the test plan. See `docs/lld/README.md` for the template and what
-  makes an LLD acceptable.
-- **ADR** — `docs/adr/NNNN-<slug>.md`. One decision per record, immutable once
-  accepted; a reversal is a new ADR that supersedes it. See
-  `docs/adr/README.md` for when a decision warrants one.
+- **Decision ledger** — `docs/decisions.md`. Every decision at the time it is
+  made, with the alternatives that lost and the evidence behind it. A reversal
+  keeps the original entry and states why it fell; deleting it hides the
+  reasoning. This carries what per-package LLDs and separate ADRs would, in one
+  place that cannot drift out of step with itself.
+- **No per-package LLDs.** Dropped deliberately (`docs/decisions.md` D-39). The
+  ledger covers types, algorithm, edge cases and failure modes; the package
+  `doc.go` covers responsibility and prohibitions; the HLD covers the pipeline.
+  A fourth document describing the same package is a copy to keep in sync, not
+  a design aid.
 - **Package docs** — every package has a `doc.go` stating responsibility,
   permitted dependencies, and prohibitions.
 - **Godoc** — every exported identifier has a comment beginning with its own

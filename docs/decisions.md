@@ -921,6 +921,38 @@ records stream (this is a batch tool that reads a file and exits). None apply.
 
 ---
 
+## Process amendments
+
+### D-39 — No per-package LLDs; the ledger carries their content
+
+**Status:** Accepted — amends `docs/engineering-standards.md` §3.1
+
+§3.1 required `docs/lld/<package>.md` written *before* each package. None were
+written for `group`, `link` or `report`. Rather than leave the standard saying
+one thing while the repository does another, the standard is amended.
+
+**Why:** the ledger already carries what an LLD is for — types, algorithm, edge
+cases, failure modes, and the evidence behind each threshold. D-31 through D-38
+are the `link` LLD in everything but filename. A parallel per-package document
+would be a second copy of the same reasoning, and the second copy is the one
+that goes stale.
+
+**The alternatives, and why they lost:**
+
+- _Write the three missing LLDs retroactively._ Compliant on paper, but a
+  retroactive LLD documents what was built rather than designing what will be —
+  which is the whole point of §3.1's "before". Half a day spent producing a
+  document that cannot do its job.
+- _Accept the deviation silently._ Contradicts the standing rule that a
+  deviation is a blocking defect, and leaves a binding document that is untrue.
+
+**What is unchanged:** design is still argued in the open before code (D-02),
+every decision still lands in the ledger at the time it is made, every package
+still states its prohibitions in `doc.go`, and every exported identifier still
+carries godoc.
+
+---
+
 ## Open
 
 ### O-01 — Package layout

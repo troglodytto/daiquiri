@@ -181,3 +181,49 @@ func TestCoalesceIsDeterministic(t *testing.T) {
 func TestCoalesceEmptyInput(t *testing.T) {
 	assert.Empty(t, group.Coalesce(nil))
 }
+
+// TestCoalesceOnlyCollectsPodsForPodFindings guards a field that used to lie.
+//
+// Pods was built from k8s.object.name without checking the kind, so a Node
+// finding carried Pods=["node-4"] and a rollout carried Pods=["payment-service"]
+// -- a field named Pods holding a node and a deployment. The report counted
+// those as pods, and the same-pod causal rule could fire between two non-pods
+// and print evidence reading "same pod node-4", which is text that ends up
+// quoted in the analysis report.
+func TestCoalesceOnlyCollectsPodsForPodFindings(t *testing.T) {
+	nodeEvent := group.Classified{
+		Event: event.Event{
+			Timestamp: at("15:00.000"), Reason: "NodeHasDiskPressure", Namespace: "default",
+			Node: "node-4", Count: 1, EventUID: "uid-node",
+			Object: event.Object{Kind: event.KindNode, Name: "node-4"},
+		},
+		Class: classify.Classification{Category: classify.CategoryIssue, Rule: "node/disk-pressure"},
+	}
+	deployEvent := group.Classified{
+		Event: event.Event{
+			Timestamp: at("17:59.977"), Reason: "ScalingReplicaSet", Namespace: "production",
+			Count: 1, EventUID: "uid-deploy",
+			Object: event.Object{Kind: "Deployment", Name: "payment-service"},
+		},
+		Class: classify.Classification{Category: classify.CategoryDeployMarker, Rule: "deploy/scaled"},
+	}
+	podEvent := pod("checkout-service-7d4f8b9c5-005e2", "production", "Unhealthy", "node-2",
+		"unhealthy/readiness", at("22:07.319"))
+
+	got := group.Coalesce([]group.Classified{nodeEvent, deployEvent, podEvent})
+	require.Len(t, got, 3)
+
+	byKind := map[string]group.Finding{}
+	for _, f := range got {
+		byKind[f.Kind] = f
+	}
+
+	assert.Empty(t, byKind[event.KindNode].Pods, "a node condition is not about pods")
+	assert.Equal(t, []string{"node-4"}, byKind[event.KindNode].Nodes,
+		"but its node is still recorded, because the causal rules key on it")
+
+	assert.Empty(t, byKind["Deployment"].Pods, "a rollout is not about pods")
+
+	assert.Equal(t, []string{"checkout-service-7d4f8b9c5-005e2"}, byKind[event.KindPod].Pods,
+		"a pod finding still carries its instances")
+}

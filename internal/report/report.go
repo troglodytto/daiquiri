@@ -250,7 +250,7 @@ func columnsOf(findings []group.Finding) []column {
 			f.Namespace,
 			f.Reason,
 			fmt.Sprint(f.Count),
-			fmt.Sprint(len(f.Pods)),
+			scope(f),
 			window(f),
 			nodes(f),
 		}
@@ -274,6 +274,20 @@ func window(f group.Finding) string {
 	}
 
 	return d.Round(1e9).String()
+}
+
+// scope renders how many pod instances the finding spans.
+//
+// A dash rather than a count for findings that are not about pods: a rollout and
+// a node condition each concern exactly one object, and printing "1" there
+// invites reading it as "one pod affected", which is a different and false
+// claim.
+func scope(f group.Finding) string {
+	if len(f.Pods) == 0 {
+		return "-"
+	}
+
+	return fmt.Sprint(len(f.Pods))
 }
 
 // nodes renders the blast radius across nodes.

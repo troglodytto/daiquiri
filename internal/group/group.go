@@ -85,11 +85,21 @@ type Finding struct {
 	FirstSeen time.Time
 	LastSeen  time.Time
 
-	// Pods and Nodes are the blast radius: distinct object instances, and the
-	// distinct nodes they were observed on. Both sorted, so output is stable.
-	// Nodes is empty for scheduler and controller events, which no kubelet
-	// emitted; absence is normal and not an error.
-	Pods  []string
+	// Pods is the blast radius: the distinct pod instances the finding spans,
+	// sorted so output is stable.
+	//
+	// Empty unless the finding is about pods. A Node or Deployment finding
+	// concerns exactly one object, already named by Workload, and collecting
+	// that object's name here would put a node or a deployment in a field called
+	// Pods -- which the report would count as a pod, and which would let the
+	// same-pod causal rule fire between two things that are not pods and print
+	// evidence reading "same pod node-4".
+	Pods []string
+
+	// Nodes are the distinct nodes the finding was observed on, sorted.
+	//
+	// Empty for scheduler and controller events, which no kubelet emitted;
+	// absence is normal and not an error.
 	Nodes []string
 
 	// Events are every member record, ascending by timestamp.
@@ -166,7 +176,7 @@ func findingOf(k key, members []Classified) Finding {
 		Count:     occurrences(events),
 		FirstSeen: events[0].Timestamp,
 		LastSeen:  events[len(events)-1].Timestamp,
-		Pods:      distinct(events, func(e event.Event) string { return e.Object.Name }),
+		Pods:      podsOf(k.kind, events),
 		Nodes:     distinct(events, func(e event.Event) string { return e.Node }),
 		Events:    events,
 	}
@@ -203,6 +213,22 @@ func occurrences(events []event.Event) int {
 	}
 
 	return total
+}
+
+// podsOf returns the distinct pod instances among events, or nil when the
+// finding is not about pods.
+//
+// Kind-guarded rather than collecting object names blindly: an event's
+// k8s.object.name is a pod only when its kind says so, and a Node or Deployment
+// finding names exactly one object which Workload already carries. Returning nil
+// is what keeps the same-pod causal rule from firing between two non-pods, since
+// an empty set intersects nothing.
+func podsOf(kind string, events []event.Event) []string {
+	if kind != event.KindPod {
+		return nil
+	}
+
+	return distinct(events, func(e event.Event) string { return e.Object.Name })
 }
 
 // distinct returns the sorted unique non-empty values of f over events.
