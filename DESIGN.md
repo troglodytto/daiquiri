@@ -9,9 +9,9 @@ This is the readable version.
 
 ## North star
 
-My end user is the team. Not a dashboard, not a report someone reads on Monday.
-The person holding the pager at 3am, and the four people they'd otherwise have
-to wake up.
+My end user is the team. The person holding the pager at 3am, and the four
+people they'd otherwise have to wake up. A dashboard nobody is looking at does
+not help either of them.
 
 So I optimised for what that team can do with the output. Five things:
 
@@ -515,7 +515,7 @@ What I can tell you is exactly which kind of failure each one is, and that's the
 part that changes what you do next:
 
 - **404, 178 of them.** The process is up, listening and routing. It answered
-  you. The path just isn't there. That's a deploy problem.
+  you. The path is gone. That's a deploy problem.
 - **connection refused, 24.** Nothing was listening on that port when the probe
   fired. The process was down, or hadn't bound yet.
 - **timeout, 20.** Something accepted the connection and then didn't answer in

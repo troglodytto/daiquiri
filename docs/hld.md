@@ -15,7 +15,7 @@ open. Step 4 outlined.**
 ## 1. The problem
 
 ~20,000 records per capture, of which **5 to 227** are not routine lifecycle
-noise. Each occurrence is an independent log record — the tool must coalesce
+noise. Each occurrence is an independent log record, the tool must coalesce
 them itself.
 
 The brief's own weighting sets the priorities:
@@ -122,7 +122,7 @@ type Finding struct {
 
 ---
 
-## 4. Step 1 — Classification
+## 4. Step 1: Classification
 
 One pass. Partition, never delete (D-05, D-06).
 
@@ -133,7 +133,7 @@ One pass. Partition, never delete (D-05, D-06).
 | `CategoryUnclassified` | grouped, demoted to footer — D-09 | 0 … 1 |
 | `CategoryNoise` | **retained**, never narrated | ~19,800 |
 
-The taxonomy is data — a map of reason to ordered rules, first match wins.
+The taxonomy is data, a map of reason to ordered rules, first match wins.
 Adding a Kubernetes reason is adding a table row, never editing a `switch`
 (`engineering-standards.md` §1.3).
 
@@ -146,14 +146,14 @@ Two domain traps, both already handled:
 
 ---
 
-## 5. Step 2 — Grouping
+## 5. Step 2: Grouping
 
-Key: `(Kind, Workload, Namespace, Reason, Rule)` — D-11, D-28. `Rule` is the
+Key: `(Kind, Workload, Namespace, Reason, Rule)`, D-11, D-28. `Rule` is the
 taxonomy row that fired, so one reason carrying two failure modes (05's
 disk-pressure and memory-pressure evictions) stays two findings. Non-windowed, every
-occurrence timestamp retained — D-16. Sorted on a **total** order (`FirstSeen`,
+occurrence timestamp retained, D-16. Sorted on a **total** order (`FirstSeen`,
 then the full key) because Go randomises map iteration and 05 has same-second
-ties — D-13.
+ties, D-13.
 
 ### 5.1 Acceptance data
 
@@ -166,16 +166,16 @@ This is the expected output of Step 2 and the basis of the end-to-end tests.
 | 03-image-pull | **6** | `payment-service Failed n=24 pods=3`, `BackOff n=18 pods=3` |
 | 04-test-a | **5** | `checkout-service Unhealthy n=222 pods=5 nodes=3` |
 | 05-test-b | **10** | `NodeHasDiskPressure node-4` + 7 eviction findings, disk- and memory-pressure kept apart |
-| 06-test-c | **6** | `data-pipeline FailedScheduling n=177 pods=6` |
+| 06-test-c | **5** | `data-pipeline FailedScheduling n=177 pods=6`; line 20,001 skipped |
 
 Full expected finding tables live in `testdata/golden/`.
 
 ---
 
-## 6. Step 3 — Causality
+## 6. Step 3: Causality
 
 A trail is a **filtered, time-sorted slice of the raw records** (D-17). Not a
-structure — a query.
+structure, a query.
 
 ```go
 func Trail(all []event.Event, f Finding, window time.Duration) []event.Event
@@ -190,17 +190,17 @@ Three OR'd predicates, one linear scan, then sort by timestamp:
 | 3 | `e.Reason == "ScalingReplicaSet" ∧ e.Object.Name == f.Workload ∧ within(window)` | the rollout that preceded the trouble |
 
 **Time is a veto, never a proposal** (D-21). Every predicate requires a concrete
-shared dimension — pod, node, or workload — before time is consulted, and time
+shared dimension, pod, node, or workload, before time is consulted, and time
 is then only allowed to *reject*.
 
 **Root cause** = the earliest *cause-shaped* record in the trail (deploy marker,
-node condition, `OOMKilling`) — not merely the earliest record, which is usually
+node condition, `OOMKilling`), not merely the earliest record, which is usually
 a `Pulled`.
 
 **Incidents** = findings bucketed by their root record's event UID. In 05 the
 seven disk-pressure eviction findings root to the same `NodeHasDiskPressure` →
-one incident, seven symptoms. The eighth eviction finding — memory pressure on
-node-2, thirteen minutes earlier — finds no parent and stays a separate,
+one incident, seven symptoms. The eighth eviction finding, memory pressure on
+node-2, thirteen minutes earlier, finds no parent and stays a separate,
 demoted, transient.
 
 **Termination is reported honestly** (D-27): *origin found* versus *trail
@@ -209,7 +209,7 @@ confidence.
 
 ---
 
-## 7. Step 4 — Diagnosis
+## 7. Step 4: Diagnosis
 
 Derived from `f.Events` (time-sorted) plus the trail. Thresholds are **open**
 (O-02) and each will be a named constant with its derivation recorded.
@@ -224,7 +224,7 @@ Derived from `f.Events` (time-sorted) plus the trail. Thresholds are **open**
 | **Node issue** | trail contains a node condition ∧ ≥3 distinct workloads share that node | 05 (node-4: 6 workloads, 3 namespaces) |
 
 **The first row is what earns "no false positives on 01-healthy"** (D-26). Those
-records are genuine `Warning` events the taxonomy correctly calls issues — only
+records are genuine `Warning` events the taxonomy correctly calls issues, only
 shape separates them from real signal.
 
 ---
@@ -259,7 +259,7 @@ output pasted into the commit body; table-driven subtests named for behaviour;
 
 ### 8.3 Shape
 
-Synthetic occurrence distributions, not fixtures — a burst, a sustained run, a
+Synthetic occurrence distributions, not fixtures, a burst, a sustained run, a
 regular cycle, and an escalating ramp, each asserted to classify correctly.
 Fixture-driven shape tests would pin thresholds to one dataset.
 
@@ -280,7 +280,7 @@ Assert the brief's acceptance criteria directly:
 ### 8.4a Report
 
 `TestStylingIsEmphasisOnly` renders the same result twice and asserts the styled
-output, with CSI sequences stripped, is byte-identical to the plain one — so no
+output, with CSI sequences stripped, is byte-identical to the plain one, so no
 fact can be carried by colour. `TestRenderPlainHasNoEscapeSequences` asserts the
 plain path emits no `ESC` at all, which is what makes the submitted capture
 files readable. `TestColumnsFitTheirContent` widens a workload name past its
@@ -291,7 +291,7 @@ column and asserts every following column still aligns.
 `testdata/golden/` for rendered output, regenerated **only** under an explicit
 `-update` flag, and every diff read before acceptance. A blindly regenerated
 golden is worse than no test. Output must degrade to clean plain text when
-stdout is not a terminal — the submission requires captured files, and the
+stdout is not a terminal, the submission requires captured files, and the
 goldens pin the plain path.
 
 ### 8.6 Benchmarks
@@ -306,7 +306,7 @@ measurement: full decode of a 16 MB capture ≈ 115 ms.
 
 Decisions already taken; reintroducing one as an optimisation is a regression.
 
-- No concurrency or fan-out — sequential decode is ~115 ms against a 5,000 ms
+- No concurrency or fan-out, sequential decode is ~115 ms against a 5,000 ms
   budget.
 - No SIMD, no custom JSON parser.
 - No second implementation of anything.
