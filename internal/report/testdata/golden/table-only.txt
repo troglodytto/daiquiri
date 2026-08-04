@@ -1,0 +1,9 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,952 filtered as noise, 3 findings (133ms)
+
+TIME          SEVERITY  WORKLOAD         NAMESPACE   REASON             COUNT  PODS  WINDOW   NODES          PATTERN
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:17:59.977  INFO      payment-service  production  ScalingReplicaSet      1     -  instant  -              -
+10:18:04.412  CRITICAL  payment-service  production  Failed                24     3  10m15s   node-2,node-3  deploy-correlated failure
+10:18:14.858  CRITICAL  payment-service  production  BackOff               18     3  10m4s    node-2,node-3  deploy-correlated failure
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

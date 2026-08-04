@@ -174,7 +174,21 @@ func (p *Pipeline) Run(r io.Reader) (Result, error) {
 		return Result{}, fmt.Errorf("triage: decoding: %w", err)
 	}
 
-	res.Chart = diagnose.Build(link.Build(group.Coalesce(reportable)))
+	// The capture end comes from every record, not from the findings: the last
+	// thing that happened in the cluster is usually a lifecycle event no finding
+	// was built from, and using a finding's own LastSeen would make every
+	// incident look like it ran to the end of the observation.
+	var end time.Time
+	if n := len(res.Records); n > 0 {
+		end = res.Records[n-1].Timestamp
+		for _, e := range res.Records {
+			if e.Timestamp.After(end) {
+				end = e.Timestamp
+			}
+		}
+	}
+
+	res.Chart = diagnose.Build(link.Build(group.Coalesce(reportable)), end)
 
 	stats := d.Stats()
 	res.Ingested = stats.Ingested

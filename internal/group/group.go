@@ -78,6 +78,13 @@ type Finding struct {
 	Severity event.Severity
 	Cause    string
 
+	// Meaning is the taxonomy's plain-language reading of the failure.
+	Meaning string
+
+	// Fix is the taxonomy's remediation, with its placeholders still unresolved.
+	// Substitution happens at render, against this finding.
+	Fix string
+
 	// Recognised is false when the reason is not in the taxonomy and the verdict
 	// came from the conservative fallback.
 	//
@@ -203,6 +210,8 @@ func findingOf(k key, members []Classified) Finding {
 		Category:   members[0].Class.Category,
 		Severity:   members[0].Class.Severity,
 		Cause:      members[0].Class.Cause,
+		Meaning:    members[0].Class.Meaning,
+		Fix:        members[0].Class.Fix,
 		Recognised: members[0].Class.Recognised,
 
 		Count:     occurrences(events),

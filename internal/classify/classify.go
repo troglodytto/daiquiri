@@ -61,6 +61,20 @@ type Classification struct {
 	// brief is explicit that counts without interpretation are half the work.
 	Cause string
 
+	// Meaning is what the failure amounts to for whoever owns the service,
+	// stated without Kubernetes vocabulary. Empty for the fallback: a reason we
+	// could not interpret is a reason we cannot explain.
+	Meaning string
+
+	// Fix is the next move for an engineer holding the pager, carried from the
+	// taxonomy row. It may contain {workload}, {namespace}, {node} and {pod}
+	// placeholders, substituted by whoever renders it.
+	//
+	// Empty where the taxonomy has nothing useful to say, which is always true
+	// of the fallback: a reason we could not interpret is a reason we cannot
+	// advise on.
+	Fix string
+
 	// Rule identifies the taxonomy row that produced this verdict.
 	//
 	// Grouping keys on it so that two events sharing a reason but matching
@@ -108,6 +122,8 @@ func (c *Classifier) Classify(e event.Event) Classification {
 				Category:   r.category,
 				Severity:   r.severity,
 				Cause:      r.cause,
+				Meaning:    r.meaning,
+				Fix:        r.fix,
 				Rule:       r.id,
 				Recognised: true,
 			}

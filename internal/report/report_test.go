@@ -78,7 +78,7 @@ func nodePressure() triage.Result {
 		Ingested: 20000, Noise: 19984, Cluster: "prod-us-east-1",
 		Elapsed: 131 * time.Millisecond,
 		Chart: diagnose.Chart{
-			Forest:    link.Forest{Findings: findings, Edges: make([]link.Edge, len(findings))},
+			Forest:    link.Forest{Findings: findings, Edges: roots(len(findings))},
 			Diagnoses: diagnoses,
 		},
 	}
@@ -93,6 +93,20 @@ func nodeFinding(node string, first time.Time) group.Finding {
 		Severity: event.SeverityCritical, Cause: "node is under disk pressure",
 		Count: 1, FirstSeen: first, LastSeen: first, Nodes: []string{node},
 	}
+}
+
+// roots builds n parentless edges.
+//
+// Explicitly, never as the zero value: a zeroed link.Edge has Parent 0, which
+// says "my parent is finding 0" -- and for finding 0 itself that is a self-loop
+// no invariant permits.
+func roots(n int) []link.Edge {
+	edges := make([]link.Edge, n)
+	for i := range edges {
+		edges[i] = link.Edge{Parent: -1}
+	}
+
+	return edges
 }
 
 func golden(t *testing.T, name string, got []byte) {
@@ -146,7 +160,8 @@ func TestRenderNoFindings(t *testing.T) {
 	require.NoError(t, report.New(&buf).Render(res))
 
 	golden(t, "no-findings.txt", buf.Bytes())
-	assert.Contains(t, buf.String(), "ALL CLEAR")
+	assert.Contains(t, buf.String(), "no issues detected",
+		"the brief names this string outright; it must survive verbatim")
 	assert.Contains(t, buf.String(), "Nothing was held back")
 }
 
@@ -197,7 +212,7 @@ func healthy() triage.Result {
 		Ingested: 20000, Noise: 19997, Cluster: "prod-us-east-1",
 		Elapsed: 128 * time.Millisecond,
 		Chart: diagnose.Chart{
-			Forest:    link.Forest{Findings: findings, Edges: make([]link.Edge, len(findings))},
+			Forest:    link.Forest{Findings: findings, Edges: roots(len(findings))},
 			Diagnoses: diagnoses,
 		},
 	}
@@ -222,8 +237,10 @@ func TestColumnsFitTheirContent(t *testing.T) {
 	res := nodePressure()
 	res.Chart.Findings[1].Workload = "a-workload-with-a-very-long-name-indeed"
 
+	// Table only. This is a test about column alignment, and the incident view
+	// repeats every reason in prose where no column applies.
 	var buf bytes.Buffer
-	require.NoError(t, report.New(&buf).Render(res))
+	require.NoError(t, report.New(&buf).Only(report.ViewTable).Render(res))
 
 	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
 
@@ -275,4 +292,163 @@ func stripANSI(s string) string {
 		i++
 	}
 	return b.String()
+}
+
+// TestRenderBothViewsByDefault: the flags narrow, they do not enable. A reader
+// who passes nothing should not have to know the tool had a second thing to
+// show them.
+func TestRenderBothViewsByDefault(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Render(deployFailure()))
+
+	out := buf.String()
+	assert.Contains(t, out, "SEVERITY", "the table")
+	assert.Contains(t, out, "ROOT CAUSE", "and the tree")
+	assert.Less(t, strings.Index(out, "SEVERITY"), strings.Index(out, "ROOT CAUSE"),
+		"inventory first, argument second")
+}
+
+func TestRenderTableOnly(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Only(report.ViewTable).Render(deployFailure()))
+
+	golden(t, "table-only.txt", buf.Bytes())
+	assert.NotContains(t, buf.String(), "ROOT CAUSE")
+}
+
+func TestRenderTreeOnly(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Only(report.ViewTree).Render(deployFailure()))
+
+	golden(t, "tree-only.txt", buf.Bytes())
+	assert.NotContains(t, buf.String(), "SEVERITY")
+}
+
+// TestTreeIsEmphasisOnly holds the incident view to the same contract as the
+// table. It carries far more styles -- two inverted badges, a quoted record, our
+// own prose about that record -- so it is the rendering most likely to leak a
+// fact into colour alone.
+func TestTreeIsEmphasisOnly(t *testing.T) {
+	var plain, styled bytes.Buffer
+	require.NoError(t, report.New(&plain).Only(report.ViewTree).Render(deployFailure()))
+	require.NoError(t, report.NewStyled(&styled).Only(report.ViewTree).Render(deployFailure()))
+
+	require.Contains(t, styled.String(), string(esc), "the styled renderer must actually style")
+	assert.NotContains(t, plain.String(), string(esc))
+	assert.Equal(t, plain.String(), stripANSI(styled.String()))
+}
+
+// TestTreeHasNoTrailingWhitespace: captured output is diffed and grepped, and
+// invisible padding is noise in both.
+//
+// The one exception is a line ending in a badge. ROOT CAUSE and PAGED HERE are
+// inverted blocks, and the space inside the inversion is what makes them read as
+// blocks rather than as words -- so it is padding that does visible work, and it
+// is identical in the plain and styled renderings.
+func TestTreeHasNoTrailingWhitespace(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Only(report.ViewTree).Render(deployFailure()))
+
+	for n, line := range strings.Split(buf.String(), "\n") {
+		if strings.HasSuffix(line, "PAGED HERE ") || strings.HasSuffix(line, "ROOT CAUSE ") {
+			continue
+		}
+
+		assert.Equal(t, strings.TrimRight(line, " "), line, "line %d has trailing spaces", n+1)
+	}
+}
+
+// TestTreeQuotesOnlyASpecificSignature covers the verdict block's restraint. A
+// generic signature restates the reason, which the cause line above it already
+// gave, and quoting it spends the most prominent line in the report on a
+// paraphrase of the question.
+func TestTreeQuotesOnlyASpecificSignature(t *testing.T) {
+	res := deployFailure()
+	res.Chart.Diagnoses[1].Signatures = []diagnose.Signature{
+		{Text: "Error: ImagePullBackOff", Count: 18, Specific: false},
+	}
+
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Only(report.ViewTree).Render(res))
+
+	verdict := strings.SplitN(buf.String(), "how we got there", 2)[0]
+	assert.NotContains(t, verdict, "Error: ImagePullBackOff",
+		"a restatement of the reason must not be quoted as the answer")
+	assert.Contains(t, verdict, "image pull failed", "the taxonomy's own sentence still stands")
+	assert.Contains(t, verdict, "the image this deployment asks for does not exist",
+		"and so does the plain-language reading, which is what a service owner acts on")
+}
+
+// TestRemediationIsRenderedLast, because it is what the reader does after they
+// have understood the rest.
+func TestRemediationIsRenderedLast(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Only(report.ViewTree).Render(deployFailure()))
+
+	out := buf.String()
+	require.Contains(t, out, "RECOMMENDED")
+	assert.Greater(t, strings.Index(out, "RECOMMENDED"), strings.Index(out, "how we got there"))
+	assert.Contains(t, out, "deploy/payment-service -n production", "placeholders are resolved")
+}
+
+// deployFailure mirrors 03-image-pull-failure: a rollout, the pull it broke, and
+// the retry loop beneath that. Three levels, which is the deepest chain the
+// corpus produces, and one of each badge.
+//
+// Built by hand rather than by running diagnose, for the same reason as
+// nodePressure: a golden file that moved whenever a threshold was retuned would
+// be testing the wrong package.
+func deployFailure() triage.Result {
+	rollout := group.Finding{
+		Kind: "Deployment", Workload: "payment-service", Namespace: "production",
+		Reason: "ScalingReplicaSet", Rule: "deploy/scaled",
+		Category: classify.CategoryDeployMarker, Severity: event.SeverityInfo, Recognised: true,
+		Count: 1, FirstSeen: at("10:17:59.977"), LastSeen: at("10:17:59.977"),
+	}
+	pull := finding(event.SeverityCritical, "payment-service", "production", "Failed", 24,
+		[]string{"payment-service-9e3f1a2b8-005e2", "payment-service-9e3f1a2b8-7f871", "payment-service-9e3f1a2b8-c257b"},
+		[]string{"node-2", "node-3"}, at("10:18:04.412"), at("10:28:19.001"))
+	pull.Cause = "image pull failed; the tag or registry credentials are likely wrong"
+	pull.Meaning = "the image this deployment asks for does not exist where it is looking -- most often a tag that was never pushed, or a typo in the version"
+	pull.Fix = "confirm the tag exists, then roll back: kubectl rollout undo deploy/{workload} -n {namespace}"
+
+	retry := finding(event.SeverityCritical, "payment-service", "production", "BackOff", 18,
+		[]string{"payment-service-9e3f1a2b8-005e2", "payment-service-9e3f1a2b8-7f871", "payment-service-9e3f1a2b8-c257b"},
+		[]string{"node-2", "node-3"}, at("10:18:14.858"), at("10:28:18.900"))
+
+	findings := []group.Finding{rollout, pull, retry}
+
+	return triage.Result{
+		Ingested: 20000, Noise: 19952, Cluster: "prod-us-east-1",
+		Elapsed: 133 * time.Millisecond,
+		Chart: diagnose.Chart{
+			Forest: link.Forest{
+				Findings: findings,
+				Edges: []link.Edge{
+					{Parent: -1},
+					{Parent: 0, Kind: link.KindCaused, Rule: "rollout-replicaset",
+						Evidence: "rollout created replica set payment-service-9e3f1a2b8 4.4s earlier; all 3 affected pods belong to it"},
+					{Parent: 1, Kind: link.KindCaused, Rule: "same-pod",
+						Evidence: "same pod payment-service-9e3f1a2b8-005e2, 10.4s after Failed"},
+				},
+			},
+			CaptureEnd: at("10:29:59.677"),
+			Diagnoses: []diagnose.Diagnosis{
+				{Pattern: diagnose.PatternNone, Confidence: diagnose.ConfidenceExplained,
+					Signatures: []diagnose.Signature{
+						{Text: "Scaled up replica set payment-service-9e3f1a2b8 to 3", Count: 1, Specific: true},
+					}},
+				{Pattern: diagnose.PatternDeployCorrelated, Confidence: diagnose.ConfidenceExplained,
+					Signatures: []diagnose.Signature{
+						{Text: `Failed to pull image "registry.internal/payment-service:v2.14.0-rc3": rpc error: code = NotFound desc = manifest not found`, Count: 3, Specific: true},
+						{Text: "Error: ImagePullBackOff", Count: 18, Specific: false},
+						{Text: "Error: ErrImagePull", Count: 3, Specific: false},
+					}},
+				{Pattern: diagnose.PatternDeployCorrelated, Confidence: diagnose.ConfidenceExplained,
+					Signatures: []diagnose.Signature{
+						{Text: `Back-off pulling image "registry.internal/payment-service:v2.14.0-rc3"`, Count: 18, Specific: true},
+					}},
+			},
+		},
+	}
 }

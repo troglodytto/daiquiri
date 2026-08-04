@@ -110,6 +110,15 @@ type Edge struct {
 	// Kind distinguishes a proven edge from a speculative one.
 	Kind Kind
 
+	// Rule names the causal rule that fired.
+	//
+	// Carried rather than left implicit so that callers asking "do these
+	// siblings share an explanation" compare a decision instead of parsing
+	// Evidence, which is display text. The six evictions in 05-test-b all fired
+	// node-condition-named and their Evidence strings all differ, because each
+	// states its own elapsed time.
+	Rule string
+
 	// Evidence is printed verbatim beneath the edge. It names the shared
 	// dimension and the elapsed time, and quotes the record text where the
 	// record states its own cause, so a reader can check the claim against the
@@ -149,7 +158,7 @@ func Build(findings []group.Finding) Forest {
 				}
 
 				if ev, ok := r.links(findings[j], findings[i]); ok {
-					edges[i] = Edge{Parent: j, Kind: r.kind, Evidence: ev}
+					edges[i] = Edge{Parent: j, Kind: r.kind, Rule: r.name, Evidence: ev}
 					break rules
 				}
 			}
@@ -203,7 +212,13 @@ func (f Forest) Children(i int) []int {
 // Two findings share a root exactly when they are the same incident, which is
 // what lets the report present one node failure rather than seven evictions.
 func (f Forest) RootOf(i int) int {
-	for f.Edges[i].Parent != noParent {
+	// The walk is bounded by the Parent < index invariant rather than trusting
+	// it. Build cannot violate it, but Forest is an exported struct and a caller
+	// that assembles one by hand -- a test fixture, a decoder for a serialised
+	// chart -- can produce Parent >= index, where an unguarded walk spins
+	// forever instead of failing. Stopping treats a malformed edge as a root,
+	// which is the conservative reading: it claims less, not more.
+	for f.Edges[i].Parent != noParent && f.Edges[i].Parent < i {
 		i = f.Edges[i].Parent
 	}
 

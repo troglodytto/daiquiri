@@ -30,6 +30,15 @@ func run(args []string, stderr io.Writer) int {
 	flagSet := flag.NewFlagSet("triage", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 
+	// Both views by default. The flags narrow, they do not enable: a reader who
+	// wants only one is expressing a preference, and a reader who passes neither
+	// should not have to know the tool had a second thing to show them.
+	tableOnly := flagSet.Bool("table", false,
+		"render only the prioritised summary table")
+	treeOnly := flagSet.Bool("tree", false,
+		"render only the causal incident view: root cause, impact, how we got there, "+
+			"and the recommended next move")
+
 	flagSet.Usage = func() {
 		// Nothing useful can be done if stderr itself is broken.
 		_, _ = fmt.Fprintf(stderr, "usage: triage [flags] <filename.jsonl>\n\nversion: %s\nflags:\n", version)
@@ -54,7 +63,21 @@ func run(args []string, stderr io.Writer) int {
 		return exitFail
 	}
 
-	if err := report.New(os.Stdout).Render(res); err != nil {
+	if *tableOnly && *treeOnly {
+		_, _ = fmt.Fprintf(stderr, "--table and --tree are mutually exclusive; pass neither for both\n")
+		return exitUsage
+	}
+
+	renderer := report.New(os.Stdout)
+
+	switch {
+	case *tableOnly:
+		renderer = renderer.Only(report.ViewTable)
+	case *treeOnly:
+		renderer = renderer.Only(report.ViewTree)
+	}
+
+	if err := renderer.Render(res); err != nil {
 		_, _ = fmt.Fprintf(stderr, "triage: writing report: %v\n", err)
 		return exitFail
 	}

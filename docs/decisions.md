@@ -1308,6 +1308,308 @@ sentences.
 
 ---
 
+### D-48 — The "why" is a signature over record bodies, not a new derivation
+
+**Status:** Accepted
+
+The patterns answer *what kind of failure this is*. They do not answer *why*, and
+the brief asks for both — its output spec calls for *"evidence: event counts,
+**signatures**, patterns observed"*.
+
+The answer was already in the capture and was being discarded at render time:
+
+| Finding | What the records actually say |
+|---|---|
+| 04 `checkout-service/Unhealthy` ×222 | `Readiness probe failed: HTTP probe failed with statuscode: 404` |
+| 03 `payment-service/Failed` ×24 | `Failed to pull image "registry.internal/payment-service:v2.14.0-rc3": manifest not found` |
+| 02 `recommendation-service/OOMKilling` ×26 | `Container recommendation in pod <pod> exceeded memory limit (512Mi)` |
+| 06 `data-pipeline/FailedScheduling` ×177 | `0/6 nodes are available: 6 Insufficient cpu` |
+
+04 is the case that settles it. `Unhealthy` plus `deploy-correlated failure`
+says a probe is failing after a rollout. **The 404 says the rollout shipped a
+build whose `/healthcheck` path no longer exists** — which is the actual
+diagnosis, the actual remediation, and one substring away from being free.
+
+**Why a signature rather than quoting a body.** A finding holds up to 222
+records and their bodies differ in pod name, IP and UID. Quoting the first is
+arbitrary and hides that 04 has *three distinct symptoms*, not one. Normalising
+the volatile tokens and counting collapses them to a handful:
+
+| Finding | records | signatures |
+|---|---|---|
+| 04 `Unhealthy` | 222 | 3 |
+| 06 `FailedScheduling` | 177 | 3 |
+| 02 `BackOff` | 91 | 1 |
+| 03 `Failed` | 24 | 3 |
+
+**Normalised:** pod names (`<pod>`), IPv4 addresses (`<ip>`), and
+parenthesised UIDs (dropped). Nothing else. In particular **numbers with units
+are never touched** — `512Mi`, `404`, `8080` and `0/6` are the answer, not
+noise, and a normaliser that ate them would delete exactly what this feature
+exists to surface.
+
+**Why this belongs in `diagnose` and not in `report`.** Reducing 222 bodies to 3
+ranked signatures is an interpretation of shape across a finding's records,
+which is this stage's remit and which `report` is explicitly forbidden to do.
+`report` renders the list it is handed.
+
+---
+
+### D-49 — Signatures rank by specificity, then by frequency
+
+**Status:** Accepted
+
+Frequency alone is the wrong sort key, and 03 is the proof:
+
+```
+Error: ImagePullBackOff                                          18 of 24
+Failed to pull image "registry.internal/payment-service:v2.14.0-rc3"
+  ... manifest ... not found                                      3 of 24
+Error: ErrImagePull                                               3 of 24
+```
+
+The **rarest** signature is the **only** one that says anything. `Error:
+ImagePullBackOff` is a restatement of the REASON column; the 3-occurrence line
+names the tag that does not exist. Leading with the common one buries the
+answer under a paraphrase of the question.
+
+**The rule:** a signature is *specific* if — after normalisation — it contains a
+**quoted string** or a **digit**. Specific signatures sort above generic ones;
+within each group, frequency decides.
+
+**Why that predicate.** Normalisation has already removed the volatile digits
+(IPs, UIDs, pod hashes), so a digit that survives is a fact about the failure:
+a status code, a resource amount, a port, a node tally. A quoted string is a
+name the cluster chose to quote — an image ref, a volume, a configmap.
+
+**Verified against every multi-signature finding in the corpus:**
+
+| Finding | Leads with | Correct? |
+|---|---|---|
+| 03 `Failed` | `Failed to pull image "…v2.14.0-rc3"` (quoted, 3×) | yes — the bad tag |
+| 04 `Unhealthy` | `HTTP probe failed with statuscode: 404` (digit, 178×) | yes — the missing endpoint |
+| 06 `FailedScheduling` | `0/6 nodes are available: 6 Insufficient cpu` (digit, 118×) | yes |
+| 05 `Evicted` | `The node had condition: [DiskPressure].` (sole signature) | n/a |
+
+**Rejected: longest-first.** It gets 03 and 04 right, and it gets them right by
+accident — length is a proxy for nothing. A rule that happens to work is a rule
+that will stop working without telling you.
+
+**Rejected: a taxonomy of "interesting" tokens per reason.** More accurate and
+more fitted to this corpus. Specificity is a property of a sentence, not of a
+Kubernetes reason, and the general rule is the one that survives an event type
+we have never seen.
+
+**Binary, not a score.** A ranking function with weights would need every weight
+justified, and the corpus supports exactly one distinction: *does this line
+carry a concrete noun or not*. Frequency is a real tiebreak; anything finer
+would be invented.
+
+---
+
+### D-50 — Edges carry the rule that produced them
+
+**Status:** Accepted
+
+`link.Edge` gains `Rule string` — the name of the causal rule that fired.
+
+It was already present as a field on the rule table and thrown away. Two callers
+need it, and both were about to re-derive it from the evidence string, which is
+display text:
+
+1. The tree collapses sibling children that share an explanation (D-51), and
+   "same explanation" means *same causal rule*, not *same evidence text* — the
+   six evictions in 05 all fired `node-condition-named` but their evidence
+   strings differ in elapsed time.
+2. `ANALYSIS.md` needs to say which relationships the tool asserted, and
+   counting rule names is not the same as grepping prose.
+
+Parsing a sentence to recover a decision that was made in code is the failure
+this prevents.
+
+---
+
+### D-51 — Siblings that share an explanation collapse to one line each
+
+**Status:** Accepted
+
+05 renders six children of one node condition, each repeating an identical
+`why` and a near-identical `caused`:
+
+```
+├── 10:15:15.359  Evicted on batch-reporter  ×1 · 1 pods
+│        why:  The node had condition: [DiskPressure].
+│        caused: node-4 reported DiskPressure 15.4s earlier, and this record names it…
+├── 10:15:25.779  Evicted on data-pipeline  ×3 · 3 pods · 4m31s
+│        why:  The node had condition: [DiskPressure].
+│        caused: node-4 reported DiskPressure 25.8s earlier, and this record names it…
+   … four more, identical
+```
+
+Thirty lines to say one thing six times. The repetition actively hides the
+information that *is* per-child — which workloads, which namespaces, how far
+apart.
+
+**Collapsed:** the shared explanation is stated once on the parent, and each
+child becomes one line carrying only what differs.
+
+```
+10:15:00.000  NodeHasDiskPressure on node-4
+     pattern: node issue
+     why:  Node node-4 status is now: NodeHasDiskPressure
+     → evicted 6 workloads across 3 namespaces in 1m38s, each naming
+       "The node had condition: [DiskPressure]"
+│
+├── 10:15:15.359  Evicted  batch-reporter (data)       ×1 · 1 pod   +15.4s
+├── 10:15:25.779  Evicted  data-pipeline (data)        ×3 · 3 pods  +25.8s
+└── … four more
+```
+
+**The collapse condition is a fact, not a judgement:** every child shares the
+same edge rule (D-50), the same reason, and the same leading signature. Any
+child that differs on any of the three renders in full, beside its collapsed
+siblings — so the collapse can never hide a child that is telling a different
+story.
+
+**Rejected: a `--verbose` escape hatch.** A second rendering path and a second
+set of golden files, to restore text that is by construction identical. The one
+case where the detail matters — a child whose explanation differs — is not
+collapsed in the first place.
+
+**Rejected: keeping every child in full** so each node is independently
+quotable into `ANALYSIS.md`. The report is read under time pressure before it is
+quoted, and a reader who cannot see six workloads in one glance is worse off
+than one who has to look up a line.
+
+---
+
+### D-52 — One `PAGED HERE` marker per incident, on the worst leaf
+
+**Status:** Accepted
+
+The north star is pulling on the thread of a page and walking back to the
+origin, so the tree has to show where the thread starts. The marker goes on the
+**deepest node of highest severity** — the symptom that would actually have
+raised the alert — with the root labelled as the cause it traces back to.
+
+```
+10:17:59.977  ▸ ScalingReplicaSet on payment-service     ◀── ROOT CAUSE
+│
+└── 10:18:04.412  Failed on payment-service  ×24
+    │
+    └── 10:18:14.858  BackOff on payment-service  ×18   ◀── PAGED HERE
+```
+
+**Rejected: marking every leaf.** In 05 that is all six evictions, and a marker
+on most of the tree marks nothing.
+
+**Rejected (deferred, not dismissed): `--trace <workload>`.** Naming the service
+you were paged for and dimming the rest is closer to the real 3am workflow than
+any default can be. It is genuinely better *and* it does not remove the need for
+a default, since the captured output files the brief requires are produced
+without arguments. Worth building if the mandatory deliverables land early.
+
+**Severity of an incident is the maximum over its tree, not its root's.** 03's
+root is a rollout at INFO, and the outage beneath it is CRITICAL; taking the
+root's severity labelled the whole incident INFO and would have sorted it below
+a readiness blip.
+
+---
+### D-53 — Remediation is a column in the taxonomy, not a rules engine
+
+**Status:** Accepted
+
+The brief asks the analysis report for *"remediation for the next five minutes"*,
+and a triage tool that names a cause without naming a next move stops one step
+short of useful. Each taxonomy row gains a `fix`, rendered as `RECOMMENDED` at
+the foot of the incident it belongs to.
+
+**Keyed on the mechanism's rule, not the root's.** 03's root is a rollout; the
+fix for a rollout is nothing. The fix belongs to what actually broke — the same
+node the verdict quotes.
+
+**Templated, so it is copy-pasteable.** `{workload}`, `{namespace}`, `{node}` and
+`{pod}` are substituted from the finding, because a command an on-call engineer
+has to hand-edit at 3am is a command they will get wrong.
+
+**Diagnostic before destructive.** Where both exist, the safe command comes
+first. `kubectl logs --previous` before `kubectl set resources`; `kubectl
+describe node` before `kubectl cordon`. The tool is confident about what it
+observed and has no business being confident about what to change.
+
+**Explicitly not a rules engine.** No conditionals, no severity-dependent
+advice, no synthesis across findings. One string per taxonomy row, the same
+shape as `cause`. Adding remediation for a new failure mode is filling in a
+column — and a row with no `fix` renders nothing rather than something vague.
+
+**A limitation stated rather than hidden.** The fix table covers only the
+fourteen reasons the taxonomy covers, which are the reasons that occur in these
+six captures. A real cluster produces many more --
+`CreateContainerConfigError`, `FailedAttachVolume`, `NetworkNotReady`,
+`Preempted` and so on -- and for every one of them this tool falls back to
+"unrecognised reason, surfaced uninterpreted, no remediation known". That is the
+correct behaviour and it is still a gap; see O-04.
+
+---
+
+### D-54 — `Incident` is the unit the report renders, and it is built in `diagnose`
+
+**Status:** Accepted — supersedes the flat ordering sketched in `handover.md` §8.2
+
+The renderer needs, per incident: its severity, its blast radius, which node
+explains it, which node paged, and where it sits in priority order. Every one of
+those is a derived fact, and `report` is forbidden to derive. So they are
+computed once, in `diagnose`, and handed over:
+
+```go
+type Incident struct {
+	Root, Mechanism, Paged int   // Paged is -1 when several symptoms tie
+	Severity   event.Severity     // MAX over the tree, never the root's
+	Members    []int              // root and descendants, in time order
+	Events, Pods, Workloads, Namespaces int
+	First, Last  time.Time
+	StillFailing bool
+}
+```
+
+**Three different "important nodes", and conflating them was a real bug.**
+
+| | Which node | Answers |
+|---|---|---|
+| `Root` | nothing explains it | *what set this off* |
+| `Mechanism` | **shallowest** failure of max severity | *what actually broke* |
+| `Paged` | **deepest** leaf of max severity | *what raised the alert* |
+
+The verdict first quoted the deepest node. In 03 that is `BackOff` — *"repeated
+image-pull retry"*, a consequence — where the shallowest failure is `Failed`,
+which names the tag that does not exist. Depth is the right axis for *what paged
+you* and the wrong one for *what went wrong*.
+
+**`Paged` is -1 on a tie.** 05 has six equally-bad leaves and no way to know
+which one raised the page; marking the first is a fabrication. The root carries
+the incident instead.
+
+**Blast radius counts Pod-kind findings only.** Counting all members made 05
+read *"7 workloads across 4 namespaces"* — node-4 is not a workload, and
+`default` is a namespace where nothing happened. Six workloads, three
+namespaces.
+
+**Ordering: severity, then blast radius, then time.** This is the brief's
+"prioritised summary", applied to incidents rather than findings, so an incident
+is never split across the ranking.
+
+**`StillFailing`** is `capture end - Last <= 2m`. Derived: across the corpus
+every real problem ends 0–100s before the capture does, and every background
+finding ends 600–1730s before. Any value in that gap behaves identically; two
+minutes sits inside it and reads as a round number rather than a tuned one. It
+is the difference between *"this is happening now"* and *"this happened", which
+is the first thing an on-call reader needs and the last thing a flat report
+tells them. `diagnose.Build` therefore takes the capture end as a parameter —
+the stage cannot say whether something is ongoing without knowing when the
+observation stopped.
+
+---
+
 ## Open
 
 ### O-01 — Package layout
@@ -1334,3 +1636,30 @@ forest rather than a threshold on its own.
 D-17's `window` parameter. Observed deploy→first-symptom deltas: 03 = 4.4s,
 04 = 7.3s, 06 = 4.7s. All under 10 seconds, which suggests a generous window is
 safe — but the value needs justifying, not guessing.
+
+### O-04 — The taxonomy covers only the reasons these captures contain
+
+Fourteen reasons are classified, and they are exactly the reasons that occur in
+the six provided files. A real cluster emits many more --
+`CreateContainerConfigError`, `FailedAttachVolume`, `NetworkNotReady`,
+`Preempted`, `FailedKillPod`, `ImageInspectError`, `NodeHasMemoryPressure`,
+`NodeHasPIDPressure`, `TaintManagerEviction` among them.
+
+Every one of them currently lands on the conservative fallback: surfaced as an
+issue if it is a Warning, never labelled with a pattern, never suppressed, no
+remediation. That is the *correct* failure mode -- nothing is silently dropped
+and nothing is confidently mislabelled -- but the tool is measurably less useful
+on a cluster that is not one of these six files, and saying so is more honest
+than a taxonomy that looks complete.
+
+Two questions to settle, neither of them settled by this corpus:
+
+1. **How far to extend the taxonomy** without evidence. Every row added from
+   documentation rather than from observed records is a row whose body matchers
+   are guesses -- and D-?? already records one case where the brief's own
+   example body text would never have matched the records
+   (`OOMKilling`).
+2. **Whether the causal rules generalise.** All four were derived from edges
+   visible in these captures. `NodeHasMemoryPressure` would flow through
+   `node-condition-named` unchanged; a `Preempted` pod naming its preemptor
+   would need a rule that does not exist.

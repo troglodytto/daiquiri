@@ -48,6 +48,32 @@ type rule struct {
 	category Category
 	severity event.Severity
 	cause    string
+
+	// meaning is what the failure amounts to, in terms a developer who does not
+	// operate Kubernetes can act on.
+	//
+	// Separate from cause because they answer different questions. cause is what
+	// the cluster did -- "container exceeded its memory limit and was killed by
+	// the kernel" -- and meaning is what that tells you about your software:
+	// "the process is using more memory than it is allowed, which usually means
+	// a leak". The first is a fact; the second is the inference a reader would
+	// otherwise have to make, and the brief is explicit that counts without
+	// interpretation are half the work.
+	//
+	// Written to be read aloud to whoever owns the service. No kubectl, no
+	// Kubernetes nouns where a plain one exists, one sentence.
+	meaning string
+
+	// fix is the next move, rendered as RECOMMENDED beneath the incident this
+	// rule explains. Empty means we have nothing useful to say, which renders
+	// nothing -- silence beats a vague gesture at "investigate further".
+	//
+	// {workload}, {namespace}, {node} and {pod} are substituted from the finding
+	// so the command can be pasted rather than hand-edited. Where a safe check
+	// and a real change both apply, the check comes first: this tool is
+	// confident about what it observed and has no business being confident
+	// about what to change.
+	fix string
 }
 
 // warning is an addressable copy for use in whenSeverity.
@@ -86,13 +112,17 @@ var taxonomy = map[string][]rule{
 			whenSeverity: &warning,
 			category:     CategoryIssue,
 			severity:     event.SeverityCritical,
+			meaning:      "the container starts, dies, and is restarted over and over -- it is failing during startup or crashing immediately after it",
 			cause:        "container is crash-looping and repeatedly failing to start",
+			fix:          "read the previous container's exit: kubectl logs {pod} -n {namespace} --previous",
 		},
 		{
 			id:       "backoff/image-pull-retry",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
+			meaning:  "Kubernetes keeps retrying a download that cannot succeed, and will keep waiting longer between attempts until the image is fixed",
 			cause:    "repeated image-pull retry; the image cannot be fetched",
+			fix:      "same fix as the pull failure above; the retry stops when the image resolves",
 		},
 	},
 
@@ -103,13 +133,17 @@ var taxonomy = map[string][]rule{
 			whenBodyHas: imagePullMarkers,
 			category:    CategoryIssue,
 			severity:    event.SeverityCritical,
+			meaning:     "the image this deployment asks for does not exist where it is looking -- most often a tag that was never pushed, or a typo in the version",
 			cause:       "image pull failed; the tag or registry credentials are likely wrong",
+			fix:         "confirm the tag exists, then roll back: kubectl rollout undo deploy/{workload} -n {namespace}",
 		},
 		{
 			id:       "failed/sandbox-creation",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
+			meaning:  "the pod could not be created at all, so the application never got the chance to start; this is below your code, in the node runtime or its networking",
 			cause:    "container or pod sandbox creation failed",
+			fix:      "check the node's container runtime and CNI: kubectl describe pod {pod} -n {namespace}",
 		},
 	},
 	"FailedCreatePodSandBox": {
@@ -117,7 +151,9 @@ var taxonomy = map[string][]rule{
 			id:       "failed-sandbox",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
+			meaning:  "the node could not build the container environment, so nothing inside the pod ever ran -- an infrastructure fault rather than an application one",
 			cause:    "pod sandbox creation failed; the pod never reached a running state",
+			fix:      "check the node's container runtime and CNI: kubectl describe node {node}",
 		},
 	},
 
@@ -131,7 +167,9 @@ var taxonomy = map[string][]rule{
 			id:       RuleOOMKilled,
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
+			meaning:  "the process is using more memory than it is allowed, which usually means a leak or a limit set below what the service actually needs",
 			cause:    "container exceeded its memory limit and was killed by the kernel",
+			fix:      "read the previous run's logs for the growth, then raise the limit: kubectl logs {pod} -n {namespace} --previous",
 		},
 	},
 
@@ -140,7 +178,9 @@ var taxonomy = map[string][]rule{
 			id:       "node/not-ready",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
+			meaning:  "a machine in the cluster stopped reporting healthy, so everything running on it is at risk of being moved or lost",
 			cause:    "node went unhealthy; workloads on it are at risk",
+			fix:      "check the kubelet on {node}, then drain if it stays down: kubectl describe node {node}",
 		},
 	},
 	"NodeHasDiskPressure": {
@@ -148,7 +188,9 @@ var taxonomy = map[string][]rule{
 			id:       "node/disk-pressure",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
+			meaning:  "a machine in the cluster is running out of disk, and Kubernetes has started killing pods on it to reclaim space",
 			cause:    "node is under disk pressure and will evict pods",
+			fix:      "free disk on {node} and stop scheduling onto it: kubectl describe node {node}; kubectl cordon {node}",
 		},
 	},
 
@@ -159,7 +201,9 @@ var taxonomy = map[string][]rule{
 			id:       RuleFailedScheduling,
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
+			meaning:  "there is nowhere to put these pods -- the cluster does not have enough free CPU or memory for what was asked for",
 			cause:    "pod cannot be placed; insufficient resources or unsatisfied taints",
+			fix:      "the cluster cannot fit this; scale down or add capacity: kubectl scale deploy/{workload} -n {namespace} --replicas=<fewer>",
 		},
 	},
 	"Unhealthy": {
@@ -168,13 +212,17 @@ var taxonomy = map[string][]rule{
 			whenBodyHas: []string{"Liveness probe failed"},
 			category:    CategoryIssue,
 			severity:    event.SeverityWarning,
+			meaning:     "the application stopped answering the check that proves it is alive, so Kubernetes is restarting it",
 			cause:       "liveness probe failing; the kubelet will restart the container",
+			fix:         "confirm the probe path exists in the new image; compare against the previous revision",
 		},
 		{
 			id:       "unhealthy/readiness",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
+			meaning:  "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
 			cause:    "readiness probe failing; the pod is being kept out of service",
+			fix:      "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}",
 		},
 	},
 	"FailedMount": {
@@ -182,7 +230,9 @@ var taxonomy = map[string][]rule{
 			id:       "failed-mount",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
+			meaning:  "the pod is waiting for a configmap or secret that does not exist, so it cannot start until that config is created",
 			cause:    "volume mount failed; a referenced configmap or secret is likely missing",
+			fix:      "create the missing configmap or secret, or fix its name in the pod spec",
 		},
 	},
 	"Evicted": {
@@ -191,13 +241,17 @@ var taxonomy = map[string][]rule{
 			whenBodyHas: []string{"[DiskPressure]"},
 			category:    CategoryIssue,
 			severity:    event.SeverityWarning,
+			meaning:     "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
 			cause:       "pod evicted because its node was under disk pressure",
+			fix:         "fix the node condition first; the pods will reschedule once {node} recovers",
 		},
 		{
 			id:       "evicted/memory-pressure",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
+			meaning:  "this pod was killed to protect a machine running low on memory, usually because it asked for less than it actually uses",
 			cause:    "pod evicted because its node was under resource pressure",
+			fix:      "set or raise the memory request for {workload} so the scheduler reserves what it uses",
 		},
 	},
 

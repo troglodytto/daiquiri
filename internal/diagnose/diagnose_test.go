@@ -76,7 +76,7 @@ func TestTransientNeedsAllThreeBounds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := diagnose.Build(forest([]group.Finding{tt.f}, root))
+			c := diagnose.Build(forest([]group.Finding{tt.f}, root), start.Add(time.Hour))
 			assert.Equal(t, tt.want, c.Diagnoses[0].Pattern == diagnose.PatternTransient)
 		})
 	}
@@ -105,23 +105,23 @@ func TestSuppressionNeedsAllFourClauses(t *testing.T) {
 	evicted := issue("auth-service", "evicted/disk-pressure", 1, 1, 0)
 
 	t.Run("unexplained and unexplanatory is suppressed", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{decoy}, root))
+		c := diagnose.Build(forest([]group.Finding{decoy}, root), start.Add(time.Hour))
 		assert.True(t, c.Diagnoses[0].Suppressed)
 	})
 
 	t.Run("explanatory survives", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0))
+		c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0), start.Add(time.Hour))
 		assert.False(t, c.Diagnoses[0].Suppressed, "it explains six evictions")
 	})
 
 	t.Run("explained survives", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0))
+		c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0), start.Add(time.Hour))
 		assert.False(t, c.Diagnoses[1].Suppressed, "the node condition explains it")
 	})
 
 	t.Run("large and unexplained survives", func(t *testing.T) {
 		big := issue("checkout-service", "unhealthy/readiness", 222, 5, 8*time.Minute)
-		c := diagnose.Build(forest([]group.Finding{big}, root))
+		c := diagnose.Build(forest([]group.Finding{big}, root), start.Add(time.Hour))
 		assert.False(t, c.Diagnoses[0].Suppressed, "shape alone keeps it")
 	})
 }
@@ -147,7 +147,7 @@ func TestSuppressionOnlyAppliesToIssues(t *testing.T) {
 		Count: 1, FirstSeen: start, LastSeen: start,
 	}
 
-	c := diagnose.Build(forest([]group.Finding{unclassified, marker}, root, root))
+	c := diagnose.Build(forest([]group.Finding{unclassified, marker}, root, root), start.Add(time.Hour))
 
 	assert.False(t, c.Diagnoses[0].Suppressed, "an uninterpretable reason must stay visible")
 	assert.False(t, c.Diagnoses[1].Suppressed, "a rollout is an anchor, not background")
@@ -170,7 +170,7 @@ func TestAnUnrecognisedReasonIsNeitherLabelledNorBuried(t *testing.T) {
 	probe.Reason = "LALALALA"
 	probe.Recognised = false
 
-	c := diagnose.Build(forest([]group.Finding{probe}, root))
+	c := diagnose.Build(forest([]group.Finding{probe}, root), start.Add(time.Hour))
 
 	assert.False(t, c.Diagnoses[0].Suppressed, "we cannot dismiss what we could not read")
 	assert.Equal(t, diagnose.PatternNone, c.Diagnoses[0].Pattern, "and we cannot categorise it either")
@@ -190,7 +190,7 @@ func TestNonIssuesGetNoPattern(t *testing.T) {
 		Count: 1, FirstSeen: start, LastSeen: start,
 	}
 
-	c := diagnose.Build(forest([]group.Finding{unclassified, marker}, root, root))
+	c := diagnose.Build(forest([]group.Finding{unclassified, marker}, root, root), start.Add(time.Hour))
 
 	assert.Equal(t, diagnose.PatternNone, c.Diagnoses[0].Pattern)
 	assert.Equal(t, diagnose.PatternNone, c.Diagnoses[1].Pattern)
@@ -214,7 +214,7 @@ func TestCapacityOutranksDeployCorrelated(t *testing.T) {
 		Body: "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available.",
 	}}
 
-	c := diagnose.Build(forest([]group.Finding{marker, scheduling}, root, 0))
+	c := diagnose.Build(forest([]group.Finding{marker, scheduling}, root, 0), start.Add(time.Hour))
 
 	assert.Equal(t, diagnose.PatternCapacity, c.Diagnoses[1].Pattern)
 }
@@ -234,7 +234,7 @@ func TestSchedulingWithoutInsufficientResourcesIsNotCapacity(t *testing.T) {
 		Body: "0/6 nodes are available: 6 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }.",
 	}}
 
-	c := diagnose.Build(forest([]group.Finding{marker, scheduling}, root, 0))
+	c := diagnose.Build(forest([]group.Finding{marker, scheduling}, root, 0), start.Add(time.Hour))
 
 	assert.Equal(t, diagnose.PatternDeployCorrelated, c.Diagnoses[1].Pattern)
 }
@@ -254,7 +254,7 @@ func TestCrashLoopKeysOnRuleNotReason(t *testing.T) {
 	crashLoop := issue("recommendation-service", classify.RuleCrashLoop, 91, 4, 26*time.Minute)
 	pullRetry := issue("payment-service", "backoff/image-pull-retry", 18, 3, 10*time.Minute)
 
-	c := diagnose.Build(forest([]group.Finding{marker, crashLoop, pullRetry}, root, root, 0))
+	c := diagnose.Build(forest([]group.Finding{marker, crashLoop, pullRetry}, root, root, 0), start.Add(time.Hour))
 
 	assert.Equal(t, diagnose.PatternCrashLoop, c.Diagnoses[1].Pattern)
 	assert.Equal(t, diagnose.PatternDeployCorrelated, c.Diagnoses[2].Pattern)
@@ -265,7 +265,7 @@ func TestCrashLoopKeysOnRuleNotReason(t *testing.T) {
 func TestASingleOOMKillIsNotACrashLoop(t *testing.T) {
 	once := issue("recommendation-service", classify.RuleOOMKilled, 1, 1, 0)
 
-	c := diagnose.Build(forest([]group.Finding{once}, root))
+	c := diagnose.Build(forest([]group.Finding{once}, root), start.Add(time.Hour))
 
 	assert.Equal(t, diagnose.PatternTransient, c.Diagnoses[0].Pattern)
 }
@@ -282,7 +282,7 @@ func TestNodeIssueIsInheritedFromTheRoot(t *testing.T) {
 	}
 	evicted := issue("auth-service", "evicted/disk-pressure", 1, 1, 0)
 
-	c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0))
+	c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0), start.Add(time.Hour))
 
 	assert.Equal(t, diagnose.PatternNodeIssue, c.Diagnoses[0].Pattern)
 	assert.Equal(t, diagnose.PatternNodeIssue, c.Diagnoses[1].Pattern)
@@ -305,17 +305,17 @@ func TestConfidenceIsDecidedByWhatTheRootIs(t *testing.T) {
 	alone := issue("inventory-service", "failed-mount", 1, 1, 0)
 
 	t.Run("a rollout root explains its descendants", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{marker, backOff}, root, 0))
+		c := diagnose.Build(forest([]group.Finding{marker, backOff}, root, 0), start.Add(time.Hour))
 		assert.Equal(t, diagnose.ConfidenceExplained, c.Diagnoses[1].Confidence)
 	})
 
 	t.Run("a node condition root explains its descendants", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{condition, alone}, root, 0))
+		c := diagnose.Build(forest([]group.Finding{condition, alone}, root, 0), start.Add(time.Hour))
 		assert.Equal(t, diagnose.ConfidenceExplained, c.Diagnoses[1].Confidence)
 	})
 
 	t.Run("a failure root with children is partially explained", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{oom, backOff}, root, 0))
+		c := diagnose.Build(forest([]group.Finding{oom, backOff}, root, 0), start.Add(time.Hour))
 		assert.Equal(t, diagnose.ConfidencePartial, c.Diagnoses[0].Confidence,
 			"the crash-loop is explained by the OOM kills; what drove the memory growth is not in this capture")
 		assert.Equal(t, diagnose.ConfidencePartial, c.Diagnoses[1].Confidence,
@@ -323,7 +323,7 @@ func TestConfidenceIsDecidedByWhatTheRootIs(t *testing.T) {
 	})
 
 	t.Run("a failure root with no children is unexplained", func(t *testing.T) {
-		c := diagnose.Build(forest([]group.Finding{alone}, root))
+		c := diagnose.Build(forest([]group.Finding{alone}, root), start.Add(time.Hour))
 		assert.Equal(t, diagnose.ConfidenceUnexplained, c.Diagnoses[0].Confidence)
 	})
 }
@@ -333,7 +333,7 @@ func TestReportedSkipsSuppressed(t *testing.T) {
 	decoy := issue("data-pipeline", "evicted/memory-pressure", 1, 1, 0)
 	real := issue("checkout-service", "unhealthy/readiness", 222, 5, 8*time.Minute)
 
-	c := diagnose.Build(forest([]group.Finding{decoy, real}, root, root))
+	c := diagnose.Build(forest([]group.Finding{decoy, real}, root, root), start.Add(time.Hour))
 
 	assert.Equal(t, []int{1}, c.Reported())
 	assert.Equal(t, 1, c.SuppressedCount(), "the count is disclosed, not discarded")
@@ -341,7 +341,7 @@ func TestReportedSkipsSuppressed(t *testing.T) {
 }
 
 func TestBuildOnAnEmptyForest(t *testing.T) {
-	c := diagnose.Build(link.Forest{})
+	c := diagnose.Build(link.Forest{}, time.Time{})
 
 	assert.Empty(t, c.Diagnoses)
 	assert.Empty(t, c.Reported())
@@ -356,7 +356,7 @@ func TestDiagnosesAreParallelToFindings(t *testing.T) {
 		issue("c", "failed-mount", 1, 1, 0),
 	}
 
-	c := diagnose.Build(forest(findings, root, root, 1))
+	c := diagnose.Build(forest(findings, root, root, 1), start.Add(time.Hour))
 
 	require.Len(t, c.Diagnoses, len(c.Findings))
 }

@@ -49,6 +49,12 @@ type palette struct {
 	header, rule, meta          lipgloss.Style
 	critical, warning, infoDull lipgloss.Style
 	healthy                     lipgloss.Style
+
+	// Incident-view styles. The tree carries more kinds of text than the table
+	// does -- a diagnosis, a quoted record, prose evidence, two badges -- and
+	// they need to be distinguishable without any of them shouting.
+	pattern, signature, evidence, edge lipgloss.Style
+	rootTag, pagedTag                  lipgloss.Style
 }
 
 func paletteFrom(lr *lipgloss.Renderer) palette {
@@ -64,6 +70,27 @@ func paletteFrom(lr *lipgloss.Renderer) palette {
 		// on exactly one line, which never coexists with a table -- so the "three
 		// conventional colours" rule the palette follows is not weakened by it.
 		healthy: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("2")),
+
+		// The diagnosis is italic rather than coloured: it is a label, and the
+		// row's colour is already spent on severity.
+		pattern: lr.NewStyle().Italic(true).Foreground(lipgloss.Color("5")),
+
+		// A quoted record body is the most literal thing on screen, so it is the
+		// least decorated -- plain, at full brightness.
+		signature: lr.NewStyle().Foreground(lipgloss.Color("7")),
+
+		// Our prose about the data, as opposed to the data. Dimmed and italic so
+		// the eye can tell an assertion from a quotation at a glance.
+		evidence: lr.NewStyle().Faint(true).Italic(true),
+
+		// Structure glyphs only, never text.
+		edge: lr.NewStyle().Foreground(lipgloss.Color("6")),
+
+		// The two badges are inverted rather than merely coloured: they are the
+		// only things in the report a reader should be able to find without
+		// reading, and inversion survives a colour scheme that mangles hues.
+		rootTag:  lr.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("3")),
+		pagedTag: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("1")),
 	}
 }
 
@@ -72,6 +99,38 @@ type Renderer struct {
 	w      io.Writer
 	styled bool
 	style  palette
+
+	// view selects which of the two renderings to produce.
+	view View
+}
+
+// View selects what the renderer produces.
+//
+// The two views answer different questions and the default is both, in the
+// order a reader needs them: the table is the inventory -- everything that is
+// wrong, at a glance, prioritised -- and the tree is the argument for what
+// caused it. The brief asks for the first and the north star asks for the
+// second; narrowing to one is a preference, not a trade-off the tool should
+// make on the reader's behalf.
+type View uint8
+
+// Views. The zero value renders both, so a Renderer built with New is complete.
+const (
+	ViewBoth View = iota
+	ViewTable
+	ViewTree
+)
+
+// Only narrows the renderer to a single view.
+func (r *Renderer) Only(v View) *Renderer {
+	r.view = v
+
+	return r
+}
+
+// shows reports whether v is part of what this renderer produces.
+func (r *Renderer) shows(v View) bool {
+	return r.view == ViewBoth || r.view == v
 }
 
 // New returns a Renderer that decides for itself whether to style, based on
@@ -162,7 +221,13 @@ func (r *Renderer) Render(res triage.Result) error {
 		return err
 	}
 
-	r.writeTable(&b, res.Chart, reported)
+	if r.shows(ViewTable) {
+		r.writeTable(&b, res.Chart, reported)
+	}
+
+	if r.shows(ViewTree) {
+		r.writeIncidents(&b, res.Chart)
+	}
 
 	_, err := io.WriteString(r.w, b.String())
 
@@ -216,8 +281,11 @@ func (r *Renderer) writeHeader(b *strings.Builder, res triage.Result) {
 // was held back, the sentence says that instead: silence because there was
 // nothing, not silence because we filtered.
 func (r *Renderer) writeAllClear(b *strings.Builder, res triage.Result) {
-	fmt.Fprintf(b, "\n%s\n\n", r.paint(r.style.healthy, "✓  ALL CLEAR"))
-	fmt.Fprintln(b, "   No findings. Nothing here needs an on-call response.")
+	// The brief names this string outright -- "your tool should output 'no issues
+	// detected' and exit 0" -- so it is present verbatim rather than paraphrased,
+	// and the emphasis is built around it instead of replacing it.
+	fmt.Fprintf(b, "\n%s\n\n", r.paint(r.style.healthy, "✓  ALL CLEAR — no issues detected"))
+	fmt.Fprintln(b, "   Nothing here needs an on-call response.")
 
 	if n := res.Chart.SuppressedCount(); n > 0 {
 		fmt.Fprintf(b, "   %s held back as background -- each explained by nothing,\n   and explaining nothing.\n",
@@ -229,8 +297,8 @@ func (r *Renderer) writeAllClear(b *strings.Builder, res triage.Result) {
 	fmt.Fprintln(b, "   Nothing was held back.")
 }
 
-// plural renders a count with its noun, so the all-clear line reads as a
-// sentence rather than as a counter.
+// plural renders a count with its noun, so a line reads as a sentence rather
+// than as a counter.
 func plural(n int, noun string) string {
 	if n == 1 {
 		return "1 " + noun
@@ -238,6 +306,10 @@ func plural(n int, noun string) string {
 
 	return fmt.Sprintf("%d %ss", n, noun)
 }
+
+// eventKindNode is event.KindNode, aliased so tree.go can ask what kind a
+// finding is without this package importing the event model for one constant.
+const eventKindNode = event.KindNode
 
 // writeTable writes the reported findings, one row each, in the order given.
 func (r *Renderer) writeTable(b *strings.Builder, c diagnose.Chart, reported []int) {
