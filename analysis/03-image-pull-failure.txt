@@ -1,0 +1,46 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,952 filtered as noise, 3 findings, 3 suppressed as background (137ms)
+
+TIME          SEVERITY  WORKLOAD         NAMESPACE   REASON             COUNT  PODS  WINDOW   NODES                 PATTERN
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:17:59.977  INFO      payment-service  production  ScalingReplicaSet      1     -  instant  -                     -
+10:18:04.412  CRITICAL  payment-service  production  Failed                24     3  10m15s   node-2,node-3,node-4  deploy-correlated failure
+10:18:14.858  CRITICAL  payment-service  production  BackOff               18     3  10m4s    node-2,node-3,node-4  deploy-correlated failure
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+━━ INCIDENT 1 of 1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CRITICAL · explained ━━
+
+   ROOT CAUSE    rollout of payment-service  at 10:17:59.977
+                 image pull failed; the tag or registry credentials are likely wrong
+                 → the image this deployment asks for does not exist where it is
+                   looking -- most often a tag that was never pushed, or a typo in the
+                   version
+                 │ Failed to pull image "registry.internal/payment-service:v2.14.0-rc3":
+                 │ rpc error: code = NotFound desc = manifest for
+                 │ registry.internal/payment-service:v2.14.0-rc3 not found
+
+   IMPACT        42 events · 3 pods · 10m19s · STILL FAILING at capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ▸ 10:17:59.977  ScalingReplicaSet  payment-service · production
+     ▪ Scaled up replica set payment-service-9e3f1a2b8 to 3  1/1
+
+     ╰─ ● 10:18:04.412  Failed  payment-service · production           ×24 · 3 pods · 10m15s
+           deploy-correlated failure  ·  every ~40.5s per pod, easing 13.5s → 2m35s
+           ▪ Failed to pull image "registry.internal/payment-service:v2.14.0-rc3":  3/24
+             rpc error: code = NotFound desc = manifest for
+             registry.internal/payment-service:v2.14.0-rc3 not found
+             Error: ImagePullBackOff  18/24
+             … 1 further signature not shown
+           ⤷ rollout created replica set payment-service-9e3f1a2b8 4.4s earlier; all 3
+             affected pods belong to it
+
+           ╰─ ● 10:18:14.858  BackOff  payment-service · production  ×18 · 3 pods · 10m4s   PAGED HERE 
+                 deploy-correlated failure  ·  every ~1m20s per pod, easing 37.6s → 3m13s
+                 ▪ Back-off pulling image "registry.internal/payment-service  18/18
+                   :v2.14.0-rc3"
+                 ⤷ same pod payment-service-9e3f1a2b8-005e2, 10.4s after Failed
+
+   RECOMMENDED   confirm the tag exists, then roll back: kubectl rollout undo deploy/payment-service -n production
+

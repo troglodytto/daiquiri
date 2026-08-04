@@ -1800,6 +1800,46 @@ rather than a confident one.
 ---
 
 
+### D-59 — `--trace` narrows to one workload and marks one node
+
+**Status:** Accepted — un-parks the option deferred by D-52
+
+The north star is pulling on the thread of a page and walking back to the
+origin. `--trace <workload>` is that path directly: name the service you were
+paged for, get the incident it belongs to, and see where in the chain you are.
+
+```
+TRACING auth-service — showing 1 of 1 incident
+
+   ROOT CAUSE    node-4 reported NodeHasDiskPressure  at 10:15:00.000
+     ├─ 10:16:25.429  Evicted  auth-service · production  ×1 · 1 pod  +1m25.4s   YOU ARE HERE
+```
+
+`auth-service` did nothing wrong. The trail runs from the pod that paged you to
+a node that filled its disk, through two namespaces you do not own.
+
+**One marker, not every match.** The first implementation marked every finding
+whose workload matched, which in 03-image-pull-failure marks all three nodes of
+the tree — every one of them is `payment-service` — and says nothing. The mark
+goes on the **last matching member in time**: the most recent thing your service
+did, which is what you were looking at when you were paged.
+
+**It narrows, and says what it narrowed.** Incidents not involving the workload
+are counted in the header rather than dropped, and a workload with no incident
+gets a sentence saying so rather than an empty report that reads like a clean
+cluster. Same rule as the suppressed count in D-45: a filter that does not
+disclose what it filtered can mislead by omission.
+
+**It implies the incident view**, at the API and not only at the CLI. The table
+has no notion of a trail, so narrowing it to one workload would merely hide
+rows — and a caller who asked to follow a thread wants the thread.
+
+**Matches a pod instance as well as a workload**, because the name on a page is
+often the pod.
+
+---
+
+
 ## Open
 
 ### O-01 — Package layout

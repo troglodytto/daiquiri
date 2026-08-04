@@ -45,8 +45,36 @@ const (
 )
 
 // writeIncidents renders every incident, most urgent first.
+//
+// When a workload is being traced, only incidents touching it are rendered, and
+// the rest are accounted for in one line rather than dropped -- a filtered
+// report that does not say what it filtered is a report that can mislead by
+// omission.
 func (r *Renderer) writeIncidents(b *strings.Builder, c diagnose.Chart) {
-	incidents := c.Incidents()
+	all := c.Incidents()
+
+	incidents := all
+	if r.trace != "" {
+		incidents = incidents[:0:0]
+
+		for _, in := range all {
+			if touches(c, in, r.trace) {
+				incidents = append(incidents, in)
+			}
+		}
+
+		fmt.Fprintf(b, "\n%s %s\n",
+			r.paint(r.style.header, "TRACING"),
+			r.paint(r.style.meta, fmt.Sprintf("%s — showing %d of %s",
+				r.trace, len(incidents), plural(len(all), "incident"))))
+
+		if len(incidents) == 0 {
+			fmt.Fprintf(b, "\n  %s\n",
+				r.paint(r.style.warning, "no incident in this capture involves "+r.trace))
+
+			return
+		}
+	}
 
 	for n, in := range incidents {
 		b.WriteByte('\n')
@@ -67,6 +95,18 @@ func (r *Renderer) writeIncidents(b *strings.Builder, c diagnose.Chart) {
 
 		b.WriteByte('\n')
 	}
+}
+
+// touches reports whether any member of an incident concerns the named
+// workload, matched against the workload name and the pod instances beneath it.
+func touches(c diagnose.Chart, in diagnose.Incident, name string) bool {
+	for _, i := range in.Members {
+		if matches(c.Findings[i], name) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // writeIncidentRule writes the severity-coloured banner that opens an incident.
@@ -227,7 +267,13 @@ func (r *Renderer) writeNode(b *strings.Builder, c diagnose.Chart, in diagnose.I
 		right = r.paint(r.style.meta, scope)
 	}
 
-	if i == in.Paged {
+	if i == r.tracedNode(c, in) {
+		if right != "" {
+			right += "  "
+		}
+
+		right += r.paint(r.style.tracedTag, " YOU ARE HERE ")
+	} else if i == in.Paged {
 		if right != "" {
 			right += "  "
 		}
@@ -418,7 +464,9 @@ func (r *Renderer) writeCollapsed(b *strings.Builder, c diagnose.Chart, in diagn
 			r.paint(r.style.header, kf.Workload)+r.paint(r.style.meta, " · "+kf.Namespace))
 
 		right := r.paint(r.style.meta, scopeOf(kf)+"  +"+kf.FirstSeen.Sub(c.Findings[parent].FirstSeen).Round(1e8).String())
-		if k == in.Paged {
+		if k == r.tracedNode(c, in) {
+			right += "  " + r.paint(r.style.tracedTag, " YOU ARE HERE ")
+		} else if k == in.Paged {
 			right += "  " + r.paint(r.style.pagedTag, " PAGED HERE ")
 		}
 
@@ -429,6 +477,43 @@ func (r *Renderer) writeCollapsed(b *strings.Builder, c diagnose.Chart, in diagn
 
 		fmt.Fprintln(b, row+strings.Repeat(" ", gap)+right)
 	}
+}
+
+// tracedNode returns the single finding to mark as where the reader is.
+//
+// The latest matching member, not every match. In 03 all three findings belong
+// to payment-service, and marking all three says nothing -- the useful mark is
+// the symptom you were looking at when you were paged, which is the last thing
+// your service did. Returns -1 when nothing is being traced.
+func (r *Renderer) tracedNode(c diagnose.Chart, in diagnose.Incident) int {
+	if r.trace == "" {
+		return -1
+	}
+
+	found := -1
+
+	for _, i := range in.Members {
+		if matches(c.Findings[i], r.trace) {
+			found = i
+		}
+	}
+
+	return found
+}
+
+// matches reports whether a finding concerns the named workload or pod.
+func matches(f group.Finding, name string) bool {
+	if f.Workload == name {
+		return true
+	}
+
+	for _, p := range f.Pods {
+		if p == name {
+			return true
+		}
+	}
+
+	return false
 }
 
 // scopeOf renders a finding's size for a collapsed row.

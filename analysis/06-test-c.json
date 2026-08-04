@@ -1,0 +1,1985 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "daiquiri",
+    "version": "dev",
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture": {
+    "cluster": "prod-us-east-1",
+    "records_ingested": 20000,
+    "records_skipped": 1,
+    "records_filtered_as_noise": 19817,
+    "records_unrecognised": 0,
+    "observation_end": "2024-06-01T10:29:59.677Z",
+    "elapsed_ms": 143.957
+  },
+  "incidents": [
+    {
+      "severity": "WARNING",
+      "confidence": "explained",
+      "root": 3,
+      "mechanism": 4,
+      "paged": 4,
+      "members": [
+        3,
+        4
+      ],
+      "events": 177,
+      "pods": 6,
+      "workloads": 1,
+      "namespaces": 1,
+      "first_seen": "2024-06-01T10:19:59.977Z",
+      "last_seen": "2024-06-01T10:29:59.677Z",
+      "span": "9m59.7s",
+      "still_failing": true,
+      "remediation": "the cluster cannot fit this; scale down or add capacity: kubectl scale deploy/data-pipeline -n data --replicas=<fewer>"
+    }
+  ],
+  "findings": [
+    {
+      "index": 0,
+      "identity": {
+        "kind": "Pod",
+        "workload": "batch-reporter",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/memory-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under resource pressure",
+        "meaning": "this pod was killed to protect a machine running low on memory, usually because it asked for less than it actually uses",
+        "fix": "set or raise the memory request for {workload} so the scheduler reserves what it uses"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "batch-reporter-735bfe2b7-928a6"
+        ],
+        "nodes": [
+          "node-5"
+        ],
+        "first_seen": "2024-06-01T10:03:27.838Z",
+        "last_seen": "2024-06-01T10:03:27.838Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node was low on resource: memory. Container reporter was using 512Mi, which exceeds its request of 200Mi.",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:03:27.838Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node was low on resource: memory. Container reporter was using 512Mi, which exceeds its request of 200Mi.",
+          "object": "batch-reporter-735bfe2b7-928a6",
+          "node": "node-5",
+          "event_uid": "b38ff62b-0780-4154-e904-70b4afddefa7",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "identity": {
+        "kind": "Pod",
+        "workload": "checkout-service",
+        "namespace": "production",
+        "reason": "FailedMount",
+        "rule": "failed-mount"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "volume mount failed; a referenced configmap or secret is likely missing",
+        "meaning": "the pod is waiting for a configmap or secret that does not exist, so it cannot start until that config is created",
+        "fix": "create the missing configmap or secret, or fix its name in the pod spec"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "checkout-service-9331a3ed1-fdfed"
+        ],
+        "nodes": [
+          "node-1"
+        ],
+        "first_seen": "2024-06-01T10:06:11.303Z",
+        "last_seen": "2024-06-01T10:06:11.303Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "MountVolume.SetUp failed for volume \"config\" : configmap \"checkout-service-config\" not found",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:06:11.303Z",
+          "severity": "WARNING",
+          "reason": "FailedMount",
+          "body": "MountVolume.SetUp failed for volume \"config\" : configmap \"checkout-service-config\" not found",
+          "object": "checkout-service-9331a3ed1-fdfed",
+          "node": "node-1",
+          "event_uid": "6120813d-1e7a-82d6-01fb-e45e924acf59",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "kind": "Pod",
+        "workload": "search-service",
+        "namespace": "production",
+        "reason": "Unhealthy",
+        "rule": "unhealthy/readiness"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "readiness probe failing; the pod is being kept out of service",
+        "meaning": "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
+        "fix": "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 3,
+        "pods": [
+          "search-service-1782d89c2-3990e"
+        ],
+        "nodes": [
+          "node-5"
+        ],
+        "first_seen": "2024-06-01T10:06:46.366Z",
+        "last_seen": "2024-06-01T10:07:01.424Z",
+        "span": "15.058s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "count": 3,
+          "specific": true,
+          "means": "the connection was not refused, and no answer arrived inside the probe's timeout"
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:06:46.366Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.110:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "search-service-1782d89c2-3990e",
+          "node": "node-5",
+          "event_uid": "f06c55c1-038f-d6b4-2568-30dc88c040ab",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:06:51.300Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.110:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "search-service-1782d89c2-3990e",
+          "node": "node-5",
+          "event_uid": "ca2b411b-c60d-92bc-3945-80434a741f87",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:01.424Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.110:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "search-service-1782d89c2-3990e",
+          "node": "node-5",
+          "event_uid": "6fbfcb79-0c77-142a-183f-916d8dc076bd",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "identity": {
+        "kind": "Deployment",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "ScalingReplicaSet",
+        "rule": "deploy/scaled"
+      },
+      "verdict": {
+        "category": "DEPLOY",
+        "severity": "INFO",
+        "recognised": true,
+        "cause": "deployment scaled; a rollout occurred here"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [],
+        "nodes": [],
+        "first_seen": "2024-06-01T10:19:59.977Z",
+        "last_seen": "2024-06-01T10:19:59.977Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": false,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Scaled up replica set data-pipeline-3c7d2e1a9 to 12",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:19:59.977Z",
+          "severity": "INFO",
+          "reason": "ScalingReplicaSet",
+          "body": "Scaled up replica set data-pipeline-3c7d2e1a9 to 12",
+          "object": "data-pipeline",
+          "event_uid": "20758d45-bdb1-e568-4fa7-80d22cea1b0d",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "FailedScheduling",
+        "rule": "failed-scheduling"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod cannot be placed; insufficient resources or unsatisfied taints",
+        "meaning": "there is nowhere to put these pods -- the cluster does not have enough free CPU or memory for what was asked for",
+        "fix": "the cluster cannot fit this; scale down or add capacity: kubectl scale deploy/{workload} -n {namespace} --replicas=<fewer>"
+      },
+      "shape": {
+        "occurrences": 177,
+        "pods": [
+          "data-pipeline-3c7d2e1a9-23bb0",
+          "data-pipeline-3c7d2e1a9-49cdd",
+          "data-pipeline-3c7d2e1a9-6c9db",
+          "data-pipeline-3c7d2e1a9-83990",
+          "data-pipeline-3c7d2e1a9-ae67b",
+          "data-pipeline-3c7d2e1a9-ff798"
+        ],
+        "nodes": [],
+        "first_seen": "2024-06-01T10:20:04.679Z",
+        "last_seen": "2024-06-01T10:29:59.677Z",
+        "span": "9m54.998s"
+      },
+      "diagnosis": {
+        "pattern": "capacity issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "count": 118,
+          "specific": true,
+          "means": "no node had enough spare CPU for these pods"
+        },
+        {
+          "text": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "count": 44,
+          "specific": true,
+          "means": "no node had enough of either CPU or memory for these pods"
+        },
+        {
+          "text": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "count": 15,
+          "specific": true,
+          "means": "no node had enough spare CPU for these pods"
+        }
+      ],
+      "cadence": {
+        "intervals_measured": 171,
+        "objects": 6,
+        "median": "20.397s",
+        "shortest": "18.268s",
+        "longest": "22.847s",
+        "early_mean": "20.447s",
+        "late_mean": "20.283s",
+        "trend": "steady"
+      },
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "rollout-replicaset",
+        "evidence": "rollout created replica set data-pipeline-3c7d2e1a9 4.7s earlier; all 6 affected pods belong to it",
+        "delay": "4.702s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:20:04.679Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "44afd3d4-2811-bdbf-e38c-efafb4a53f5e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:05.527Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "a6d30704-1799-300c-9072-f088507d6455",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:06.008Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "8bfcafb2-7510-c893-46a6-0a8a9c9b1e1c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:07.799Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "6c107630-a97e-0401-1993-a02b495dc981",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:08.137Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "f2fa30fe-4827-5ef9-8ba0-02d32894b684",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:10.248Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "a7790e4a-d320-5209-9511-f24ab98fb50c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:24.158Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "ea6ebc8c-a10d-aa5d-d52c-b07e7304e519",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:24.639Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "6b7df159-0001-5b62-3e5e-fed4c1f159c4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:25.302Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "6a7826c8-f2ae-cb5f-8810-98f4be56a823",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:28.903Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "af23a4aa-b9a8-2d5c-6f34-8a651ec2c41f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:29.858Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "34e8f138-b597-f256-331f-112cb8051494",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:30.459Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "6842b488-b91b-af7b-ef49-58f5298a729b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:43.462Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "529deaa8-3774-c71c-b5d3-adb173a7675d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:44.105Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "07b90fa1-4823-ba92-9b2e-deb4d0fa9ae0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:46.839Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "90cf8a1a-439f-5a34-1375-ab29cf25cba4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:48.766Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "8e9c1594-4105-c2ca-c8e6-94aba294ea5c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:52.217Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "f6decf50-aa68-a16b-fbe2-533d6367cc9c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:52.377Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "cb39605c-3ab4-148c-1569-fd3de770227d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:04.503Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "f6f4a75c-e346-7031-90bf-61324a17c9a5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:05.034Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "728e35fd-8c34-24da-2eb3-e20a74e16288",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:06.972Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "7c71a14d-e3ba-beda-d9c3-04e8a26e9d28",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:09.907Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "fc846fed-4df6-511b-f20b-87df68b78feb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:14.386Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "9674c147-a210-1af6-a291-1ccc3a745d8f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:14.433Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "bd4b583a-ce5f-40fa-d969-dcb506737f34",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:23.526Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "6e332498-1031-1e93-84eb-663db723ab40",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:23.615Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "05cfc9ca-9100-5d12-e74a-1a8461c39a06",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:25.706Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "dc92872f-afb7-5371-503e-5770f5b8dd48",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:30.160Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "bbb3bfde-899f-ae83-1d8f-6651e38c1443",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:32.952Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "7d702ace-2646-c978-8782-0496ac40925c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:33.685Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "18ce257d-45c1-f8f3-06d1-40dd5e1cb0ca",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:43.195Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "4e3512e2-0752-41ad-9f97-31d9fd82214b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:45.070Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "e14f36d5-ce0e-7384-229d-a651a79a6329",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:45.696Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "aa08910b-9de2-8579-2202-98a5982794f8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:51.694Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "ead07975-9550-e251-7182-172a36462c17",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:52.730Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "57124098-3552-b431-9572-7a106299db94",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:54.071Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "1555a3a9-e145-057d-9e4b-9f669c1a58c5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:03.757Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "a47d458a-dd74-8a26-3f50-9b631e614a8e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:04.133Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "042f990b-a417-fd2d-9cd2-a4b5793613d8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:06.475Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "dd633ec5-abf9-59f9-627c-0303393bf5b3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:13.216Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "5d3306be-237a-468c-b5ce-8ed611028c3a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:14.729Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "fc72de77-ab73-3d9e-6bac-e707572c921d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:14.902Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "af1d3449-c9fb-9949-8651-d84a5648a8ea",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:23.965Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "e9e8c1ae-80fa-66db-6f7c-5ced964ce198",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:25.218Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "01439c00-32eb-5820-de0a-6c1e43cafffe",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:26.604Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "ae66f408-5967-fc4f-7a72-f9a44c004904",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:33.584Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "74169b24-14ba-67c1-b93d-a21643203d68",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:35.158Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "fb7e89c6-9a85-22a4-65d1-36da496133d7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:36.249Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "47933271-3b6f-95b2-abbd-19517469a9d5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:43.002Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "8863c616-9489-9f63-8828-7f9c62d13cf1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:46.797Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "38b56aec-9d42-3a42-897b-cc926ec582b8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:47.001Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "2ec8f8fb-2b6e-40e3-a66e-ee926ec2c463",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:54.621Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "06015fb3-e20a-5449-6475-1aac25cb9934",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:55.843Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "224ca2df-70d1-9de6-5a1f-b21be8dfe4e3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:56.891Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "9ccca749-73e4-caee-bef9-98dd0ef08f14",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:03.839Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "bb2f012e-6131-06f9-8b9f-da73ac409832",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:06.525Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "86e6275e-b766-608f-6c94-382894c660cd",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:07.709Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "6e9033d6-4e9e-5821-7597-9676c5623a51",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:15.047Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "b19ea3be-185b-f3b0-384e-defe7be16e80",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:15.158Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "6b3622f7-4975-f56a-fee5-bd0f9dafbc38",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:15.458Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "5668a736-ed2f-a210-b76f-1a67c9628875",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:22.227Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "fc5698b1-14de-5f49-3e94-6114fcfed9bf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:26.421Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "f19d9bd1-98bb-88f2-ea2a-bec9312e8310",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:29.604Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "431585a4-bcd3-92db-84c4-5ffdc0affd3b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:34.820Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "bb4e9007-59f1-b8dc-4889-3aaaa899e807",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:35.377Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "8370fee4-ec4d-275c-ac41-c7be56e12416",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:36.157Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "f0f3d788-1788-6930-990e-88b4d441384a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:43.268Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "779011af-a35f-80d3-1ad1-e75e4fae73bd",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:46.844Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "6fdd8dad-96a2-da2b-874a-f7a6b1660790",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:48.683Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "7d51d6f6-7d02-d4b7-a536-ccb49902ff9c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:56.853Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "00aac26a-5128-fdcd-ac57-b4adc362efe3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:57.032Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "fc40ebb9-0720-fc94-18d4-24d012927c4b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:58.209Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "ca3d8059-51b8-b695-0dd3-f2f8fcc1b6ad",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:02.302Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "21eaa9c8-0797-fed7-fe43-90c7886a2fb7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:06.715Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "7e52e702-8d3e-8822-a97d-2cae1d7f92b8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:10.925Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "f1675fa4-2a2d-903e-6348-7505e6f26b6e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:17.789Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "ff9ddc66-ab29-d04d-0777-fe3a64864c65",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:19.310Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "53ad67b6-2777-d29f-244e-da3267a6b2c0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:19.591Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "3174d099-2f29-08ce-d733-fd4b6633db32",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:23.071Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "15d244f5-266c-5679-fadb-c8d3cb7062ea",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:27.616Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "f5960d21-1e7c-fcb3-e2ec-6191d1c9de5b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:30.641Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "b79f98a4-0216-c8ee-79b4-e7bb49c23eb7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:38.102Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "de2c4f9c-0c8d-d12c-ed47-38480081e603",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:38.888Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "5d9a44c4-97a3-ac8a-f500-168a5b40909e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:40.790Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "9e5a7025-babb-b410-53ef-ff9b049465f8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:43.530Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "896b0d7a-7558-e401-df39-a2c5a7be64a2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:47.778Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "47432dc3-9aa3-ce56-812b-ea7d97598216",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:52.472Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "b0e2e8a1-bee6-c15c-8c62-300aa756304b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:57.403Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "3e6ed121-1f59-1eee-9289-a2a4d51eaecb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:58.369Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "196cac21-24a1-7fcb-ac4c-406f4d21f36a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:01.378Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "571b645f-7f45-6e4d-e862-b7f8ea730272",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:03.027Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "96e155ab-96ec-fb87-2d23-4bb361e70c8f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:07.355Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "817080d4-d65d-2483-8949-8e9efa063e03",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:11.704Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "183f2dd2-0148-61ca-2530-a3bdcabe6400",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:15.710Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "a56bc719-f41f-2656-b6c5-ca36788d6969",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:17.355Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "aeb11947-e2ae-a4be-98f7-6dcc80fd79e5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:21.364Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "7f871b25-34db-d9a3-f0c2-e37154f15e15",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:22.075Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "63b72820-5ed7-de82-f897-be6a8e731462",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:28.959Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "e31febc0-ff99-18f4-008a-64df00cc8dab",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:33.578Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "e3000da1-f1da-b08d-5a9e-663150a033a4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:37.250Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "53d5721e-5dc2-7d8e-633b-1b2bb6019792",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:38.493Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "5d5dc438-fa46-1b7e-7300-f36ca7fcf055",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:39.951Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "7f90faf5-bbf9-30a5-01f6-62fd1d2c4ca1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:40.652Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "48b7c4cc-9c83-e63b-ad31-a8c9b4a84312",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:49.222Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "2b8119e5-5e31-06cc-80cd-3007459ef26a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:54.118Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "49f18fd2-f9fb-afb5-ae5d-75996a39f39e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:55.982Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "9d22bbb4-65cb-42e0-c80d-ae8de8b62f8f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:59.559Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "93008214-bb32-754c-f7c5-df0c173ddd1c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:59.792Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "8fd8b31b-70e9-3a0a-ed19-d1d199135db6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:00.356Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "a2ad87e7-96cc-9660-573a-27a846e722ed",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:09.926Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "7b5e3bfc-4a84-b80e-b943-2f3b35d2fba7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:14.108Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "12736a3b-f7e2-5c0c-6dc3-b530efcb3d82",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:14.698Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "6df91b7a-6605-6415-c532-130e33e3190f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:18.975Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "dcc95126-b87e-01d9-c070-21ae6ccb3a86",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:19.344Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "f3b1a36f-e2bb-8174-50af-360c963f9bb2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:20.750Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "e8867bd5-9c0b-7cd0-6b5b-c7c5ec31f4a6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:28.893Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "94f0d606-736a-8a0c-eec5-d4c30b9dcecc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:34.682Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "fcf85652-a5e8-8c0c-7d02-a1af33a2bf8f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:34.694Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "0ff228c3-8672-3694-9f3d-7f5676962f7c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:39.226Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "7bdf979f-5ab6-4201-0fd3-aa6ac3477022",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:40.682Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "9efa0abc-23fc-cc73-b52e-774b325b4de8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:41.352Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "b91d4683-ff9d-f87a-3012-de72e05349e7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:50.081Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "df799826-be20-cf13-8569-5acc91954277",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:54.488Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "88264487-5b3e-0db5-666b-64f1ef1e2cfc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:55.652Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "c55d6ec6-3912-a7c2-d8fc-115e24512c47",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:59.115Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "50a620dc-3ba8-6878-95a1-81d2d3719da8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:59.823Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "c71eb953-a5c5-1bd6-377e-2e762baf32b0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:01.023Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "734d651d-6679-bf06-8bee-d300984ae19a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:10.936Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "8691e8f7-4c47-32da-3a28-7583fff0dd80",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:15.573Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "f75469a7-8951-67ef-0f0c-b82169d3da57",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:15.850Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "bbaeb30d-aaba-47a4-9fd0-cae69e836d44",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:19.241Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "c342cfe9-8368-d377-06d3-63efee60fb86",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:20.182Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "b0eaed7a-5bed-c098-bd13-81363a9f88bc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:21.262Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "3533e59d-a24b-fdab-ccd9-4ba23916f430",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:29.986Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "8355d6ae-25c5-6a7f-920e-e09c8c8953d0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:36.551Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "beec355f-7b74-027a-5096-e5670dfa4a11",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:38.395Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "bced19cd-43bb-0271-c664-6222781933bc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:39.647Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "71cb6353-f0a2-799f-72b2-dab0a6b84cb9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:40.236Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "2d8c5138-7fcc-c8ed-d910-fcfcfc9d1882",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:41.179Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "e22652f7-55f5-5c6b-993c-e4f76bf98f44",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:51.281Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "fff9fab8-1ec9-a853-9e5c-f35fb7f61815",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:56.476Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "63e20e6f-43f7-8cf6-e9d8-e3b92adbdb0e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:58.086Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "e1a11110-37c0-4fac-03c6-8f47c95a5535",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:58.919Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "478b1a52-d76c-3c58-15c5-a2c63c667dc5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:00.160Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "eb0fae15-9528-1b3f-317f-9f3b354a4157",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:00.942Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "488e2052-593c-16eb-bc2d-b9e94b910c5d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:11.453Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "9d28c692-4451-6f9a-cee0-148eb206bf2d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:17.187Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "8156c660-e29f-fcef-6ebd-b55de926ae99",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:18.305Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "517bbe29-d4bd-59a7-63ff-d050c5796916",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:18.722Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "f6807d27-f13f-6826-5ff9-0d0e8dba7658",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:20.392Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "de75abfe-3e16-2f12-1223-f06ae76b030c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:21.496Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "a90c6408-2830-b679-8346-2190618c2287",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:34.052Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "b345d591-b1ef-eab6-cbbb-9d8209a752b4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:37.308Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "ce186be8-8384-5a0e-84d4-68bd481cf790",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:39.598Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "62986db6-49ed-fc1a-967c-e17904637637",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:40.983Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "b169bdec-b071-dff7-ef78-32fb1f0e564b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:42.264Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "5a59bd74-2c24-7fc0-572e-b4fdba230524",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:42.305Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "31c5e1a6-5590-4f9f-720d-35cd10fedd0b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:55.381Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "9e9d6552-2dbf-3899-1414-7e4efcea23dc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:56.905Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "bfad34ad-926b-183c-7266-16231a68cd9a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:59.086Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "eac6fc84-a4ee-a0e0-0cd8-b529686960e6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:01.210Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "b38c89fb-a6e8-403b-47f1-aae514e6f8be",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:01.577Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "f27f810e-cfe2-f88a-4efc-facbe5170a10",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:02.621Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "28b1bdec-9a6b-b6a8-dc31-11beb15df900",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:14.414Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "c0d03f9b-8d41-bd76-4dfb-151cb584a8cb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:19.596Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "fd22b2bd-137b-f5f9-6190-25f47c290ee3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:21.242Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "e861c8ac-da48-f316-a90b-e16b27a53e48",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:21.760Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "87e03856-255a-3f8c-aeed-0842ea16f9a3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:22.272Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "0a93e408-7a18-359f-e52d-5545fd1b7fc4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:23.631Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "cce2a910-d5d4-3a24-bdd0-58b4d9a34f0c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:34.620Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "c5dae0a0-26fa-42db-43ef-db018326469a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:40.877Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "972a9a32-bee6-eca9-218b-2d205ff4bdab",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:41.021Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-23bb0",
+          "event_uid": "40120fd1-e124-21de-31c6-7a36ea724eaa",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:41.373Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ae67b",
+          "event_uid": "1074756d-d22a-ca2b-1996-e50a74120ac4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:42.974Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-83990",
+          "event_uid": "3becdb4d-e206-6756-1b4e-b815cd0e4a97",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:44.487Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod.",
+          "object": "data-pipeline-3c7d2e1a9-6c9db",
+          "event_uid": "6d924f85-e960-a427-9e3d-47d497b3c24a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:55.229Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-ff798",
+          "event_uid": "347c6571-1ec4-f5a1-751b-bc7c76348ec0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:59.677Z",
+          "severity": "WARNING",
+          "reason": "FailedScheduling",
+          "body": "0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are available: 6 No preemption victims found for incoming pod, 6 Preemption is not helpful for scheduling.",
+          "object": "data-pipeline-3c7d2e1a9-49cdd",
+          "event_uid": "c94933a5-b789-b5d7-230c-046bfc1efd75",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,817 filtered as noise, 2 findings, 3 suppressed as background, skipped 1 (144ms)
+
+TIME          SEVERITY  WORKLOAD       NAMESPACE  REASON             COUNT  PODS  WINDOW   NODES  PATTERN
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:19:59.977  INFO      data-pipeline  data       ScalingReplicaSet      1     -  instant  -      -
+10:20:04.679  WARNING   data-pipeline  data       FailedScheduling     177     6  9m55s    -      capacity issue
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+━━ INCIDENT 1 of 1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ WARNING · explained ━━
+
+   ROOT CAUSE    rollout of data-pipeline  at 10:19:59.977
+                 pod cannot be placed; insufficient resources or unsatisfied taints
+                 → there is nowhere to put these pods -- the cluster does not have
+                   enough free CPU or memory for what was asked for
+                 │ 0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes are
+                 │ available: 6 No preemption victims found for incoming pod, 6
+                 │ Preemption is not helpful for scheduling.
+
+   IMPACT        177 events · 6 pods · 10m0s · STILL FAILING at capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ▸ 10:19:59.977  ScalingReplicaSet  data-pipeline · data
+     ▪ Scaled up replica set data-pipeline-3c7d2e1a9 to 12  1/1
+
+     ╰─ ● 10:20:04.679  FailedScheduling  data-pipeline · data  ×177 · 6 pods · 9m55s   PAGED HERE 
+           capacity issue  ·  every ~20.4s per pod
+           ▪ 0/6 nodes are available: 6 Insufficient cpu. preemption: 0/6 nodes  118/177
+             are available: 6 No preemption victims found for incoming pod, 6
+             Preemption is not helpful for scheduling.
+             → no node had enough spare CPU for these pods
+           ▪ 0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory.  44/177
+             preemption: 0/6 nodes are available: 6 No preemption victims found
+             for incoming pod.
+             → no node had enough of either CPU or memory for these pods
+             … 1 further signature not shown
+           ⤷ rollout created replica set data-pipeline-3c7d2e1a9 4.7s earlier; all 6
+             affected pods belong to it
+
+   RECOMMENDED   the cluster cannot fit this; scale down or add capacity: kubectl scale deploy/data-pipeline -n data --replicas=<fewer>
+
