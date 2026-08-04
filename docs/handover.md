@@ -34,7 +34,7 @@ logic 15% · output clarity 10% · code quality + tests 10% · docs 5%.
 | 2. coalesce | `internal/group` | done, tested |
 | 3. causality | `internal/link` | done, tested, benched, independently audited |
 | 4. diagnose | `internal/diagnose` | done, tested, benched |
-| 5. render | `internal/report` | table + pattern column + all-clear; **needs prioritised output — next** |
+| 5. render | `internal/report` | table, incident tree, `--json`, `--trace`, all-clear. done, tested, goldens pinned |
 
 `internal/triage` orchestrates. `cmd/triage` does flags and exit codes only.
 
@@ -326,52 +326,46 @@ node condition root is **explained**, a failure root with children is
 Nothing is deleted — `Suppressed` is a flag, the count is in the header, and
 `Chart.Findings` still holds everything (D-45).
 
-### 8.2 Report — prioritised output *(next; few hours)*
+### 8.2 Report *(DONE)*
 
-Done already: the `PATTERN` column, suppression applied to the table, the
-suppressed count in the header, and the all-clear rendering (D-47) that makes
-`01-healthy` print a green **✓ ALL CLEAR** with what it held back.
+Table, incident tree, `--json` and `--trace` all shipped. The table is ordered
+by time and the incident view is ordered by severity then blast radius, so the
+first block a paged engineer reads is the worst one, led by its root (D-04).
+Each incident opens with a verdict: root cause, mechanism, a plain-English
+reading, the cluster's own words quoted, impact, and a filled-in remediation
+command.
 
-Still to do — the table is still in **chronological** order, and the brief asks
-for prioritised:
+Supporting decisions: D-47 all-clear, D-48/D-49 signatures, D-51 sibling
+collapse, D-52 `PAGED HERE`, D-53 remediation column, D-54 `Incident` built in
+`diagnose`, D-55 the JSON audit trail, D-56 derived verdicts, D-57 signature
+readings, D-58 cadence, D-59 `--trace`.
 
-- Order incidents by severity, then by blast radius. Keep each incident's
-  members together and led by its root, per D-04 — the first line a paged
-  engineer reads should already be the origin.
-- Add the likely-cause and evidence lines beneath each row, in the brief's shape:
+### 8.3 Deliverables *(DONE)*
 
-```
-[CRITICAL] Failed on payment-service (production)
-  24 events across 3 pods on 3 nodes, 10:18:04 → 10:28:19, still failing
-  Pattern: deploy-correlated failure · image pull failure
-  Likely cause: the 10:17:59.977 rollout of payment-service; first failure
-                4.4s after it, zero occurrences before it
-```
+- **README** with build, run, Docker and flag docs, plus what every symbol in
+  the output means.
+- **DESIGN.md** — the design decisions in prose, the north star, and an honest
+  section on what I'd do differently. Diagrams in `docs/diagrams/`.
+- **Captured raw output** for all six captures in `analysis/*.txt` and
+  `*.json`, plus a `--trace` example. Regenerate with `make capture`.
+- **ANALYSIS.md** as a one-screen index, with a file per test scenario in
+  `analysis/0{4,5,6}-*.md`: what's broken, how to identify it, what to do, and
+  confidence with what would raise it. Terminal screenshots embedded from
+  `screenshots/`.
+- **Dockerfile** for anyone without a Go toolchain.
 
-Everything that line needs is already on the chart: `Cause` from classify,
-`Evidence` from the edge, `Pattern` and `Confidence` from the diagnosis.
+### 8.4 What's left
 
-### 8.3 Deliverables — **all three are hard requirements and all are missing**
+Nothing blocking. Open items, in rough order of value:
 
-- **README** with build/run instructions and example output.
-- **Captured raw output** for 04, 05, 06. The brief says *"This is required, not
-  optional."* Must be plain text — the renderer already degrades correctly when
-  piped.
-- **ANALYSIS.md** — 04, 05, 06, ~150 words each: Diagnosis, Evidence quoted from
-  the tool's output, remediation for the next five minutes, Confidence plus what
-  would raise it. **This is 35% of the grade — protect its time ruthlessly.**
-  The Confidence field maps straight off `diagnose.Confidence`: *explained* →
-  high, *partially explained* → medium, *unexplained* → low. What would raise it
-  is the same sentence in every case — a capture that starts earlier, since every
-  partial and unexplained root in the corpus is a trail running off the front.
-
-### 8.4 Optional, only if 8.1–8.3 are done
-
-- `--json` (brief calls it "optional but recommended")
-- the rendered causal tree with `caused` / `may relate` tiers and per-incident
-  sections — the shape the author asked for, deferred by §7
+- **O-04**: the taxonomy only covers the 14 reasons in these six captures. The
+  fallback is safe (surfaced, never labelled, never suppressed) but the tool is
+  measurably weaker on a cluster it hasn't seen.
 - the undirected-merge case in D-38: orphan findings sharing a stated cause with
   no visible parent. ~20 lines and a map. Does not occur in this corpus.
+- `docs/decisions.md` is 1,900 lines and was written in the register the author
+  has since asked the codebase comments to drop. The content is right; the prose
+  has not had the same pass the source did.
 
 ### 8.5 The working loop
 

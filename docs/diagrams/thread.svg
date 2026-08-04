@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 -16 1454 884" width="1454" height="884" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="pulling the thread">
+<title>pulling the thread</title>
+<defs>
+<marker id="h0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#6741d9"/></marker>
+</defs>
+<rect x="4" y="-16" width="1454" height="884" fill="#ffffff"/>
+<text xml:space="preserve" x="40.0" y="46.7" text-anchor="start" font-size="26" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="bold" fill="#1e1e1e">Pulling the thread</text>
+<text xml:space="preserve" x="40.0" y="74.4" text-anchor="start" font-size="14" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">3am. You were paged for one service. You want the trail from your symptom back to its origin, and nothing else.</text>
+<text xml:space="preserve" x="40.0" y="138.4" text-anchor="start" font-size="16" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#2f9e44">$ daiquiri --trace auth-service 05-test-b.jsonl</text>
+<text xml:space="preserve" x="120.0" y="203.3" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">the edge, quoted from the capture:</text>
+<text xml:space="preserve" x="120.0" y="226.3" text-anchor="start" font-size="12" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#1e1e1e">node says   &quot;Node node-4 status is now: NodeHasDiskPressure&quot;</text>
+<text xml:space="preserve" x="120.0" y="242.5" text-anchor="start" font-size="12" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#1e1e1e">pod says    &quot;The node had condition: [DiskPressure].&quot;</text>
+<rect x="120.0" y="284.0" width="430.0" height="62.0" rx="8" fill="#ffe3e3" stroke="#c92a2a" stroke-width="2"/>
+<text xml:space="preserve" x="335.0" y="310.5" text-anchor="middle" font-size="14" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#c92a2a">node-4   NodeHasDiskPressure</text>
+<text xml:space="preserve" x="335.0" y="329.4" text-anchor="middle" font-size="14" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#c92a2a">10:15:00.000</text>
+<text xml:space="preserve" x="568.0" y="311.3" text-anchor="start" font-size="13" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#c92a2a">ROOT CAUSE</text>
+<text xml:space="preserve" x="568.0" y="328.9" text-anchor="start" font-size="13" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#c92a2a">Edges[i].Parent == -1</text>
+<polyline points="335.0,436.0 335.0,360.0" fill="none" stroke="#6741d9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#h0)"/>
+<text xml:space="preserve" x="354.0" y="389.4" text-anchor="start" font-size="15" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#6741d9">i = Edges[i].Parent</text>
+<text xml:space="preserve" x="354.0" y="413.3" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">one integer hop</text>
+<rect x="120.0" y="448.0" width="430.0" height="62.0" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+<text xml:space="preserve" x="335.0" y="474.5" text-anchor="middle" font-size="14" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1971c2">Evicted   auth-service · production</text>
+<text xml:space="preserve" x="335.0" y="493.4" text-anchor="middle" font-size="14" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1971c2">10:16:25.429   ×1 · 1 pod</text>
+<text xml:space="preserve" x="568.0" y="484.4" text-anchor="start" font-size="14" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#1971c2">YOU ARE HERE</text>
+<text xml:space="preserve" x="120.0" y="537.3" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">auth-service did nothing wrong. No code change will fix this.</text>
+<rect x="790.0" y="180.0" width="480.0" height="132.0" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text xml:space="preserve" x="1030.0" y="197.9" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44">--trace narrows, and says what it left out</text>
+<text xml:space="preserve" x="1030.0" y="215.5" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44"></text>
+<text xml:space="preserve" x="1030.0" y="233.0" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44">TRACING auth-service - showing 1 of 1 incident</text>
+<text xml:space="preserve" x="1030.0" y="250.6" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44"></text>
+<text xml:space="preserve" x="1030.0" y="268.1" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44">incidents that don&#x27;t involve you are counted in the header.</text>
+<text xml:space="preserve" x="1030.0" y="285.7" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44">a filtered report that stays quiet about the filter</text>
+<text xml:space="preserve" x="1030.0" y="303.2" text-anchor="middle" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44">can mislead by omission.</text>
+<rect x="790.0" y="372.0" width="480.0" height="44.0" rx="8" fill="#e5dbff" stroke="#6741d9" stroke-width="2"/>
+<text xml:space="preserve" x="1030.0" y="399.6" text-anchor="middle" font-size="16" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#6741d9">Time is a veto, never a proposal</text>
+<text xml:space="preserve" x="790.0" y="447.3" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1e1e1e">No rule may say &quot;these happened near each other, so they&#x27;re</text>
+<text xml:space="preserve" x="790.0" y="464.9" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1e1e1e">related.&quot; Every rule needs a shared dimension first: same pod,</text>
+<text xml:space="preserve" x="790.0" y="482.4" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1e1e1e">same node, same ReplicaSet. Time is applied afterwards and can</text>
+<text xml:space="preserve" x="790.0" y="500.0" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1e1e1e">only reject.</text>
+<text xml:space="preserve" x="790.0" y="543.3" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">04-test-a is why:</text>
+<rect x="790.0" y="556.0" width="230.0" height="44.0" rx="8" fill="#f1f3f5" stroke="#868e96" stroke-width="2"/>
+<text xml:space="preserve" x="905.0" y="574.1" text-anchor="middle" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">data-pipeline</text>
+<text xml:space="preserve" x="905.0" y="590.3" text-anchor="middle" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">3× Unhealthy</text>
+<rect x="1040.0" y="556.0" width="230.0" height="44.0" rx="8" fill="#d0ebff" stroke="#1971c2" stroke-width="2"/>
+<text xml:space="preserve" x="1155.0" y="574.1" text-anchor="middle" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1971c2">checkout-service</text>
+<text xml:space="preserve" x="1155.0" y="590.3" text-anchor="middle" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#1971c2">222× Unhealthy</text>
+<text xml:space="preserve" x="790.0" y="625.3" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">same reason, same minutes, no relationship at all.</text>
+<text xml:space="preserve" x="790.0" y="642.9" text-anchor="start" font-size="13" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#868e96">proximity alone reports one incident where there are two.</text>
+<text xml:space="preserve" x="790.0" y="704.4" text-anchor="start" font-size="16" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="bold" fill="#1e1e1e">The window: 300s, and where that number came from</text>
+<polyline points="800.0,752.0 1270.0,752.0" fill="none" stroke="#1e1e1e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="808.0,740.0 808.0,764.0" fill="none" stroke="#868e96" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<text xml:space="preserve" x="784.0" y="782.3" text-anchor="start" font-size="12" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#868e96">0s</text>
+<polyline points="904.0,740.0 904.0,764.0" fill="none" stroke="#2f9e44" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<text xml:space="preserve" x="880.0" y="782.3" text-anchor="start" font-size="12" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#2f9e44">+97.9s</text>
+<polyline points="1046.0,740.0 1046.0,764.0" fill="none" stroke="#6741d9" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<text xml:space="preserve" x="1022.0" y="782.3" text-anchor="start" font-size="12" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#6741d9">300s</text>
+<polyline points="1200.0,740.0 1200.0,764.0" fill="none" stroke="#c92a2a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<text xml:space="preserve" x="1176.0" y="782.3" text-anchor="start" font-size="12" font-family="ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace" font-weight="normal" fill="#c92a2a">+600s</text>
+<text xml:space="preserve" x="818.0" y="728.3" text-anchor="start" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#2f9e44">every true edge lands in here</text>
+<text xml:space="preserve" x="1120.0" y="728.3" text-anchor="start" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#c92a2a">nearest false one</text>
+<text xml:space="preserve" x="790.0" y="812.3" text-anchor="start" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#6741d9">300s: 3× the largest true edge, half the smallest false one. One constant for all three rules.</text>
+<text xml:space="preserve" x="790.0" y="828.5" text-anchor="start" font-size="12" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="normal" fill="#6741d9">Per-rule windows would be tuned to this corpus and therefore overfitted to it.</text>
+</svg>
