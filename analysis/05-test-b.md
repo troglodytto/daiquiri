@@ -57,7 +57,7 @@ and suppresses it as background.
 That one matters. If you group evictions by workload and reason alone, it merges
 into the node-4 incident and drags the start time 13 minutes before the event
 that caused it. Then the causal link fails, because effects can't precede
-causes. Check the body, not just the reason.
+causes. Read the body. The reason on its own merges them.
 
 ## What to do
 
@@ -87,9 +87,9 @@ shows you the trail without the other five.
 **High** that disk pressure on node-4 evicted these pods. The cluster states it
 in both directions and the timing is tight.
 
-**Low** on what filled the disk. That's not in an event stream at all, it's a
-node metric. `crictl imagefsinfo`, or whatever you have for node disk usage
-over time, would answer it.
+**Low** on what filled the disk. That answer lives in a node metric and no
+event stream carries it. `crictl imagefsinfo`, or whatever you have for node
+disk usage over time, would settle it.
 
 Also unresolved: whether the node recovered. The silence after 10:16:37 reads
 the same whether it healed or somebody drained it and walked away.

@@ -16,7 +16,7 @@ engineer what broke and where it started. Brief:
 
 **North star (the author's, D-03):** PagerDuty pings, a dev pulls the thread of
 that ping, and walks back to the point where things started going wrong. Stated
-as *"far smaller than the PDF"* — but see §7, it is in fact wider, and that
+as *"far smaller than the PDF"*, but see §7, it is in fact wider, and that
 matters for time budgeting.
 
 **Grading weights:** Analysis Report 35% · tool correctness 25% · coalescing
@@ -46,7 +46,7 @@ logic 15% · output clarity 10% · code quality + tests 10% · docs 5%.
 the brief's 5-second budget that is **37x headroom**. `link.Build` at the real
 working point (n=10 findings) is 29.9 µs / 51 allocs; `RootOf` is 2.3 ns and
 allocation-free. `diagnose.Build` at n=10 is 670 ns / 11 allocs, and 1.7 ms at a
-synthetic n=1,000 chain — two orders of magnitude past anything a capture
+synthetic n=1,000 chain, two orders of magnitude past anything a capture
 produces, since n counts distinct failure modes rather than records.
 
 ---
@@ -117,7 +117,7 @@ group.Finding{
 **The causal structure is one `int` per finding.** No graph library, no
 pointers, no union-find. The invariant `Edges[i].Parent < i` makes cycles
 structurally impossible, and sorting by time *is* the topological sort. Queries
-are `Roots()`, `Children(i)`, `RootOf(i)`, `IsRoot(i)` — linear scans.
+are `Roots()`, `Children(i)`, `RootOf(i)`, `IsRoot(i)`, linear scans.
 
 **Three index-coupled slices, one value.** `Chart` embeds `Forest` rather than
 holding it in a field, so a `Chart` is usable everywhere a `Forest` was and
@@ -127,27 +127,27 @@ crash.
 
 ---
 
-## 4. Design philosophy — how decisions get made here
+## 4. Design philosophy: how decisions get made here
 
 These are load-bearing. Violating one is a defect, not a style preference.
 
 1. **Timeline first.** The timeline is the primary artifact. The diagnosis comes
    from ordering and adjacency, not from findings judged in isolation.
-2. **One trail to walk up.** At most one parent per finding — a forest, not a
+2. **One trail to walk up.** At most one parent per finding, a forest, not a
    general DAG. Two parents turns "pull the thread" into a branching
    interrogation, which is not an answer at 3am.
 3. **Do not inflate.** Said repeatedly and emphatically. Sorted slices and
    integer indices over graph libraries; fixed-width buckets over statistics;
    small ordered rule tables over scoring models. If it does not make the
    timeline clearer or the diagnosis better, it does not belong however elegant.
-   *Two designs were reverted for breaching this — a two-arena cache layout
+   *Two designs were reverted for breaching this, a two-arena cache layout
    (D-20) and an interval-overlap structure.*
 4. **Every edge must be provable** from record text or object identity.
    Co-occurrence is never sufficient (D-35).
 5. **Time is a veto, never a proposal** (D-21). Every rule requires a concrete
    shared dimension *first*; time may only reject a candidate, never create one.
 6. **Group conservatively; link to join** (D-15). Never merge across a dimension
-   you cannot show irrelevant — merging destroys information irreversibly,
+   you cannot show irrelevant, merging destroys information irreversibly,
    linking preserves it. An incident is a *tree of findings*, not one big
    finding.
 7. **Taxonomies are data.** Adding a Kubernetes reason or a causal relationship
@@ -155,7 +155,7 @@ These are load-bearing. Violating one is a defect, not a style preference.
 8. **Consumers declare interfaces; producers return concrete structs.** There is
    no `interfaces.go`; its appearance is a defect.
 9. **Design argued in the open before code** (D-02). Three decisions were
-   reversed by looking at the data before implementing — each would have been a
+   reversed by looking at the data before implementing, each would have been a
    rewrite otherwise.
 10. **TDD with observed RED.** Watch the test fail for the right reason before
     writing the implementation. "I know it would fail" is not evidence.
@@ -178,7 +178,7 @@ implementation of anything · no persistence, server or daemon · no config file
 
 ---
 
-## 5. Acceptance data — do not lose these
+## 5. Acceptance data: do not lose these
 
 Independently derived from the raw JSONL *before* the code existed. A change to
 any of these is a behaviour change, not a test that needs updating.
@@ -195,20 +195,20 @@ any of these is a behaviour change, not a test that needs updating.
 | 05 | six eviction findings ← `NodeHasDiskPressure` on node-4, +15.4s … +97.9s |
 | 06 | `FailedScheduling` ×177 ← `ScalingReplicaSet`, +4.7s; `LALALALA` vetoed at +600s |
 
-**Shape data for Step 4** — the whole corpus, measured:
+**Shape data for Step 4**, the whole corpus, measured:
 
 | | count | pods | span | minutes occupied | seconds to capture end |
 |---|---|---|---|---|---|
 | background floor (all six files) | 1–3 | 1 | 0–16s | 1–2 | 600–1730 |
 | real problems (02, 03, 04, 06) | 18–222 | 3–6 | 469–1566s | 5–22 | 0–100 |
 
-Huge margins — any threshold in those gaps works.
+Huge margins, any threshold in those gaps works.
 
 **Causal window derivation:** every true edge lands +4.4s…+97.9s; nearest false
 candidate is +600s. Any window in (98s, 600s) behaves identically; 300s chosen
 mid-gap.
 
-**Diagnose output** — reported findings after suppression, and the pattern each
+**Diagnose output**, reported findings after suppression, and the pattern each
 carries:
 
 | Fixture | findings | held back | reported | patterns |
@@ -218,9 +218,13 @@ carries:
 | 03-image-pull-failure | 6 | 3 | 3 | deploy-correlated ×2, marker |
 | 04-test-a | 5 | 3 | 2 | deploy-correlated, marker |
 | 05-test-b | 10 | 3 | 7 | node issue ×7 |
-| 06-test-c | 6 | 3 | 3 | capacity, marker, unlabelled |
+| 06-test-c | 5 | 3 | 2 | capacity, marker |
 
-**Exactly three held back in every capture, and always the same three shapes** —
+06-test-c is 5 as it ships: line 20,001 is a hand-added `LALALALA` record,
+commented out, so the decoder reports `skipped 1`. Uncomment it and 06 reads 6
+findings and 3 reported, the extra one unlabelled and unsuppressed (D-46).
+
+**Exactly three held back in every capture, and always the same three shapes:**
 an `Evicted[memory-pressure]`, a `FailedMount`, an `Unhealthy` ×3. The brief
 plants an identical background floor in all six files. A predicate tuned to one
 of them would not land on the same three in the other five, so this is
@@ -229,8 +233,8 @@ pins it.
 
 **Transient bounds:** background findings run 1–3 occurrences / 1 pod / 0–16s;
 real problems run 18–222 / 3–6 pods / 7m49s+. Constants are 10, 1 and 60s
-(D-43). `transientSpan` decides nothing on this corpus and is present anyway —
-see D-43 for why that is deliberate rather than dead.
+(D-43). `transientSpan` decides nothing on this corpus and is present anyway.
+See D-43 for why that is deliberate rather than dead.
 
 ---
 
@@ -248,7 +252,7 @@ see D-43 for why that is deliberate rather than dead.
   These are genuine Warnings the taxonomy correctly calls issues, so **"no false
   positives on 01-healthy" cannot be met by reason-based filtering.**
 - **05's individual evictions are shape-identical to that floor** (n=1, 1 pod,
-  span 0). Shape alone cannot separate them — only the causal link can. This is
+  span 0). Shape alone cannot separate them, only the causal link can. This is
   why the suppression predicate is `transient ∧ unexplained ∧ non-explanatory`,
   not `transient`. The third clause is what saves node-4's own condition, which
   is shape-identical to a decoy and has six evictions hanging off it.
@@ -272,7 +276,7 @@ see D-43 for why that is deliberate rather than dead.
   `diagnose` makes the renderer's golden files move whenever a threshold is
   retuned, which tests the wrong package. `Chart` is all exported for this.
 - **lipgloss:** `lipgloss.NewRenderer(w, termenv.WithProfile(...))` does **not**
-  work — lipgloss re-detects from the writer and reverts to Ascii. Use
+  work, lipgloss re-detects from the writer and reverts to Ascii. Use
   `renderer.SetColorProfile(termenv.ANSI)` after construction. Also termenv
   numbers `TrueColor` 0 *down to* `Ascii` 3, so a higher number is less colour.
 
@@ -280,11 +284,11 @@ see D-43 for why that is deliberate rather than dead.
 
 ## 7. Scope reality check
 
-The author framed the causal work as *"far smaller than the PDF"*. It is not —
-it is **wider**, and this was verified:
+The author framed the causal work as *"far smaller than the PDF"*. It is
+**wider**, and this was verified:
 
 - The "look for shared dimensions across findings" sentence sits in **Part 2**,
-  addressed to the analyst writing ANALYSIS.md — not to the tool.
+  addressed to the analyst writing ANALYSIS.md, not to the tool.
 - **No acceptance criterion mentions causality or correlation.**
 - The brief's own example output is flat: one block per finding, no nesting.
 
@@ -300,9 +304,9 @@ impresses and should be built *last*, after the graded checkboxes are green.
 
 ## 8. Next steps, in order
 
-### 8.1 Step 4 — diagnose *(DONE)*
+### 8.1 Step 4: diagnose *(DONE)*
 
-Shipped as `internal/diagnose`, not as a field on `group.Finding` — two of the
+Shipped as `internal/diagnose`, not as a field on `group.Finding`, two of the
 five patterns are read off `RootOf(i)`, which `group` runs too early to see
 (D-40). `Chart` embeds the forest and adds one `Diagnosis` per finding.
 
@@ -314,7 +318,7 @@ five patterns are read off `RootOf(i)`, which `group` runs too early to see
 | deploy-correlated failure | root is a deploy marker | 03, 04 |
 | transient blip | small on count, pods **and** span | the background floor |
 
-First match wins, and **mechanism outranks trigger** — 06 is truthfully both
+First match wins, and **mechanism outranks trigger**, 06 is truthfully both
 capacity and deploy-correlated, and reads as capacity because the rollout is
 already stated by the causal edge in far more detail (D-42).
 
@@ -323,7 +327,7 @@ Confidence is decided by *what the root is*, never by when (D-34): a rollout or
 node condition root is **explained**, a failure root with children is
 **partially explained**, a failure root without them is **unexplained**.
 
-Nothing is deleted — `Suppressed` is a flag, the count is in the header, and
+Nothing is deleted, `Suppressed` is a flag, the count is in the header, and
 `Chart.Findings` still holds everything (D-45).
 
 ### 8.2 Report *(DONE)*
@@ -344,7 +348,7 @@ readings, D-58 cadence, D-59 `--trace`.
 
 - **README** with build, run, Docker and flag docs, plus what every symbol in
   the output means.
-- **DESIGN.md** — the design decisions in prose, the north star, and an honest
+- **DESIGN.md**, the design decisions in prose, the north star, and an honest
   section on what I'd do differently. Diagrams in `docs/diagrams/`.
 - **Captured raw output** for all six captures in `analysis/*.txt` and
   `*.json`, plus a `--trace` example. Regenerate with `make capture`.
