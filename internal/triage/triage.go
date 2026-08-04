@@ -14,10 +14,6 @@ import (
 )
 
 // recordsCapacityHint pre-sizes the retained record slice.
-//
-// Every provided capture is ~20,000 records, so one allocation covers a whole
-// file. Purely an allocation hint -- correctness does not depend on it, and a
-// larger capture simply grows the slice.
 const recordsCapacityHint = 20 * 1024
 
 // classifiedCapacityHint pre-sizes the slice of reportable records.
@@ -28,12 +24,6 @@ const recordsCapacityHint = 20 * 1024
 const classifiedCapacityHint = 256
 
 // Classifier is what the pipeline needs from internal/classify.
-//
-// Declared here, at the consumer, rather than in the package that implements
-// it. That is the Go convention and it earns its keep: the interface lists
-// exactly what is called and nothing more, classify stays readable without a
-// separate interface file, and a test substitutes a three-line fake defined at
-// the test site without production code changing to accommodate it.
 type Classifier interface {
 	Classify(event.Event) classify.Classification
 }
@@ -61,19 +51,18 @@ type Result struct {
 
 	// Records is every decoded record, in the order the capture supplied them.
 	//
-	// Retained rather than filtered, because lifecycle events are evidence
-	// rather than clutter. The interval between a pod's Started and its next
-	// Killing is what gives a memory leak a fill rate -- 4m41s contracting to
-	// 4m12s in 02-memory-leak -- and both endpoints are records the report
+	// Lifecycle events are evidence. The interval between a pod's Started and its next
+	// Killing is what gives a memory leak a fill rate; 4m41s contracting to
+	// 4m12s in 02-memory-leak; and both endpoints are records the report
 	// itself never prints. Roughly 1.6 MB for a 20,000-record capture, against
 	// a 16 MB input file.
 	Records []event.Event
 
-	// Chart holds the coalesced reportable groups -- issues, deploy markers and
-	// unclassified reasons -- together with the causal edge derived for each and
+	// Chart holds the coalesced reportable groups; issues, deploy markers and
+	// unclassified reasons; together with the causal edge derived for each and
 	// the verdict reached on each. Lifecycle noise never becomes a finding.
 	//
-	// The three are held as one value rather than three fields because they are
+	// The three travel as one value because they are
 	// index-coupled: sorting one without the others would produce a wrong
 	// diagnosis rather than a crash.
 	Chart diagnose.Chart
@@ -93,12 +82,11 @@ func (res Result) Summarise() string {
 
 	// Background findings are counted, never silently dropped. The worst case
 	// for a mis-tuned threshold is then a number the reader can ask about,
-	// rather than a fact that left without saying so.
 	if n := res.Chart.SuppressedCount(); n > 0 {
 		s += fmt.Sprintf(" | Background: %d", n)
 	}
 
-	// Both numbers are disclosed rather than hidden: a truncated capture must
+	// Both numbers are disclosed. A truncated capture must
 	// not be able to look clean, and neither must one the taxonomy could not
 	// fully interpret.
 	if res.Skipped > 0 {
@@ -113,9 +101,6 @@ func (res Result) Summarise() string {
 }
 
 // Pipeline runs the ingest, classification and grouping stages in order.
-//
-// It holds the sequence and nothing else. If logic accumulates here, that logic
-// belongs in a stage.
 type Pipeline struct {
 	classifier Classifier
 }
@@ -127,14 +112,6 @@ func New(c Classifier) *Pipeline {
 
 // Run streams the capture in r, classifies every record, coalesces the
 // reportable ones, and reports the result.
-//
-// The decoder is constructed from r rather than injected: driving Run with a
-// reader already exercises the real decoder, so a factory indirection would buy
-// nothing. Injection is for what you cannot easily construct.
-//
-// A malformed record is counted and skipped. A stream failure returns a zero
-// Result and an error, because a partial result presented as complete is worse
-// than no result at all.
 func (p *Pipeline) Run(r io.Reader) (Result, error) {
 	start := time.Now()
 

@@ -7,12 +7,6 @@ import (
 )
 
 // Rule identifiers that are read outside this package.
-//
-// Every row in the taxonomy has an id, and most are written as literals at the
-// row that owns them, because nothing else ever names them. These three are
-// different: the diagnose stage keys its pattern table on them, so a typo in
-// either place would silently stop a pattern from ever firing. Naming them makes
-// that a compile error.
 const (
 	// RuleCrashLoop is a Warning-severity BackOff: a container restarting.
 	RuleCrashLoop = "backoff/crash-loop"
@@ -23,10 +17,6 @@ const (
 )
 
 // rule is one row of the taxonomy.
-//
-// Rules for a reason are tried in order and the first match wins, so a reason's
-// final rule must be unconditional -- that is what makes classification total
-// and lets body-sensitive reasons tolerate an empty body.
 type rule struct {
 	// whenSeverity, when set, requires the event's severity to match. This is
 	// what separates a crash-looping BackOff from an image-pull-retry BackOff.
@@ -41,7 +31,7 @@ type rule struct {
 	// Grouping keys on it, so that two events sharing a reason but matching
 	// different rules become different findings: an Evicted for disk pressure
 	// and an Evicted for memory pressure are not one fact about a workload.
-	// It exists so grouping never keys on cause, which is display text -- and
+	// It exists so grouping never keys on cause, which is display text; and
 	// rewording a sentence must not silently change how records coalesce.
 	id string
 
@@ -49,58 +39,37 @@ type rule struct {
 	severity event.Severity
 	cause    string
 
-	// meaning is what the failure amounts to, in terms a developer who does not
-	// operate Kubernetes can act on.
+	// meaning is what the failure amounts to for a developer who doesn't operate
+	// Kubernetes.
 	//
-	// Separate from cause because they answer different questions. cause is what
-	// the cluster did -- "container exceeded its memory limit and was killed by
-	// the kernel" -- and meaning is what that tells you about your software:
-	// "the process is using more memory than it is allowed, which usually means
-	// a leak". The first is a fact; the second is the inference a reader would
-	// otherwise have to make, and the brief is explicit that counts without
-	// interpretation are half the work.
+	// Separate from cause. cause is what the cluster did ("container exceeded
+	// its memory limit and was killed by the kernel"). meaning is what that says
+	// about your software ("the process is using more memory than it is allowed,
+	// which usually means a leak").
 	//
-	// Written to be read aloud to whoever owns the service. No kubectl, no
-	// Kubernetes nouns where a plain one exists, one sentence.
+	// Written to be read aloud to whoever owns the service. One sentence, no
+	// kubectl, no Kubernetes nouns where a plain one exists.
 	meaning string
 
-	// fix is the next move, rendered as RECOMMENDED beneath the incident this
-	// rule explains. Empty means we have nothing useful to say, which renders
-	// nothing -- silence beats a vague gesture at "investigate further".
+	// fix is the next move, rendered as RECOMMENDED under the incident. Empty
+	// renders nothing.
 	//
 	// {workload}, {namespace}, {node} and {pod} are substituted from the finding
-	// so the command can be pasted rather than hand-edited. Where a safe check
-	// and a real change both apply, the check comes first: this tool is
-	// confident about what it observed and has no business being confident
-	// about what to change.
+	// so the command can be pasted at 3am instead of hand-edited. Where a safe
+	// check and a real change both apply, the check comes first.
 	fix string
 }
 
 // warning is an addressable copy for use in whenSeverity.
-//
-// Only Warning needs one: the sole severity-guarded rule is the crash-looping
-// BackOff, and its Normal counterpart is that reason's unconditional final rule
-// rather than a second guarded one.
 var warning = event.SeverityWarning
 
 // imagePullMarkers are the body substrings that identify an image-pull failure.
-//
-// ImagePullBackOff and ErrImagePull are not Kubernetes event reasons -- they
-// appear only inside the body of Failed events -- so reading the body is the
-// only way to tell an image-pull failure from a sandbox-creation failure. All
-// three shapes occur in the provided captures.
 var imagePullMarkers = []string{"ErrImagePull", "ImagePullBackOff", "Failed to pull image"}
 
 // noiseRule is the shared verdict for normal lifecycle events.
 var noiseRule = rule{id: "lifecycle", category: CategoryNoise, severity: event.SeverityInfo}
 
 // taxonomy maps an event reason to its ordered rules.
-//
-// This is data, deliberately. The brief invites extending the list, and
-// extending it here means adding a row -- never editing a switch statement.
-//
-// Severities follow the table in the challenge brief. Where this file departs
-// from that table it is marked, with the reason.
 var taxonomy = map[string][]rule{
 	// --- Critical -----------------------------------------------------------
 
@@ -271,7 +240,7 @@ var taxonomy = map[string][]rule{
 	// filter, which would make 01-healthy report 2,884 issues instead of none.
 	"Pulling": {noiseRule},
 
-	// Extension. Not reportable on its own, but retained rather than discarded:
+	// Extension. Not reportable alone, but retained:
 	// in all three captures where it appears it lands minutes before that
 	// capture's incident, making it the anchor for deploy-correlated failure.
 	"ScalingReplicaSet": {

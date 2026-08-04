@@ -23,7 +23,7 @@ import (
 )
 
 // update regenerates the golden files. Every regenerated diff is read before it
-// is accepted -- a blindly updated golden is worse than no test at all.
+// is accepted; a blindly updated golden is worse than no test at all.
 var update = flag.Bool("update", false, "regenerate golden files")
 
 // esc is the byte that begins every ANSI escape sequence. Its absence is what
@@ -49,8 +49,8 @@ func finding(sev event.Severity, workload, ns, reason string, n int, pods, nodes
 
 	// Member records are synthesised rather than omitted. A finding that claims
 	// 24 occurrences and carries none cannot satisfy the property the JSON
-	// document rests on -- that every count is recomputable from the records
-	// beside it -- and a fixture that cannot satisfy it is a fixture that would
+	// document rests on; that every count is recomputable from the records
+	// beside it; and a fixture that cannot satisfy it is a fixture that would
 	// have let the encoder drop them silently.
 	step := time.Duration(0)
 	if n > 1 {
@@ -86,11 +86,6 @@ func finding(sev event.Severity, workload, ns, reason string, n int, pods, nodes
 // nodePressure mirrors the shape of 05-test-b closely enough to exercise every
 // column width, severity, pattern and empty-node case, without coupling this
 // package's tests to the fixtures.
-//
-// The diagnoses are stated outright rather than derived by calling diagnose.
-// This package's prohibition is that it decides nothing, so its tests supply the
-// decisions -- and a golden file that moved whenever a threshold was retuned
-// would be testing the wrong package.
 func nodePressure() triage.Result {
 	findings := []group.Finding{
 		finding(event.SeverityWarning, "batch-reporter", "data", "Unhealthy", 3,
@@ -146,10 +141,6 @@ var allClausesHold = diagnose.Suppression{
 }
 
 // roots builds n parentless edges.
-//
-// Explicitly, never as the zero value: a zeroed link.Edge has Parent 0, which
-// says "my parent is finding 0" -- and for finding 0 itself that is a self-loop
-// no invariant permits.
 func roots(n int) []link.Edge {
 	edges := make([]link.Edge, n)
 	for i := range edges {
@@ -193,7 +184,7 @@ func TestRenderPlainHasNoEscapeSequences(t *testing.T) {
 
 // TestStylingIsEmphasisOnly pins engineering-standards.md §5: text and styled
 // output must carry identical information. Strip the escapes from the styled
-// rendering and it must be byte-identical to the plain one -- so no fact is
+// rendering and it must be byte-identical to the plain one; so no fact is
 // ever conveyed by colour alone.
 func TestStylingIsEmphasisOnly(t *testing.T) {
 	var plain, styled bytes.Buffer
@@ -218,7 +209,7 @@ func TestRenderNoFindings(t *testing.T) {
 // TestAllClearDisclosesWhatWasHeldBack is 01-healthy's actual shape: a clean
 // cluster whose three background findings were suppressed. "No findings" from a
 // tool that quietly dropped three things is a claim the reader cannot check, and
-// the entire suppression design rests on that count staying visible -- so it has
+// the entire suppression design rests on that count staying visible; so it has
 // to survive into the one output where there is nothing else to read.
 func TestAllClearDisclosesWhatWasHeldBack(t *testing.T) {
 	var buf bytes.Buffer
@@ -375,8 +366,8 @@ func TestRenderTreeOnly(t *testing.T) {
 }
 
 // TestTreeIsEmphasisOnly holds the incident view to the same contract as the
-// table. It carries far more styles -- two inverted badges, a quoted record, our
-// own prose about that record -- so it is the rendering most likely to leak a
+// table. It carries far more styles; two inverted badges, a quoted record, our
+// own prose about that record; so it is the rendering most likely to leak a
 // fact into colour alone.
 func TestTreeIsEmphasisOnly(t *testing.T) {
 	var plain, styled bytes.Buffer
@@ -390,11 +381,6 @@ func TestTreeIsEmphasisOnly(t *testing.T) {
 
 // TestTreeHasNoTrailingWhitespace: captured output is diffed and grepped, and
 // invisible padding is noise in both.
-//
-// The one exception is a line ending in a badge. ROOT CAUSE and PAGED HERE are
-// inverted blocks, and the space inside the inversion is what makes them read as
-// blocks rather than as words -- so it is padding that does visible work, and it
-// is identical in the plain and styled renderings.
 func TestTreeHasNoTrailingWhitespace(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, report.New(&buf).Only(report.ViewTree).Render(deployFailure()))
@@ -444,10 +430,6 @@ func TestRemediationIsRenderedLast(t *testing.T) {
 // deployFailure mirrors 03-image-pull-failure: a rollout, the pull it broke, and
 // the retry loop beneath that. Three levels, which is the deepest chain the
 // corpus produces, and one of each badge.
-//
-// Built by hand rather than by running diagnose, for the same reason as
-// nodePressure: a golden file that moved whenever a threshold was retuned would
-// be testing the wrong package.
 func deployFailure() triage.Result {
 	rollout := group.Finding{
 		Kind: "Deployment", Workload: "payment-service", Namespace: "production",

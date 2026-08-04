@@ -15,41 +15,31 @@ import (
 // Derived. Across the six captures every real problem's last event lands 0-100s
 // before the capture ends, and every background finding's lands 600-1730s
 // before. Any value in that gap behaves identically; two minutes sits inside it
-// and reads as a round number rather than a tuned one.
-//
-// The distinction it draws -- "this is happening now" against "this happened" --
-// is the first thing an on-call reader needs and the last thing a flat list of
-// counts tells them.
+// .
 const stillFailingWithin = 2 * time.Minute
 
 // noNode marks an incident with no single symptom to point at.
 const noNode = -1
 
 // Incident is one causal tree, summarised for the reader.
-//
-// Built here rather than in report because every field is a derived fact, and
-// report is forbidden to derive. It is also the unit of prioritisation: ranking
-// incidents rather than findings is what keeps a cause and its effects from
-// being split apart by a sort.
 type Incident struct {
-	// Root is the finding nothing explains -- what set this off.
+	// Root is the finding nothing explains; what set this off.
 	Root int
 
 	// Mechanism is what actually broke: the shallowest failure of maximum
 	// severity, skipping deploy markers.
 	//
 	// Shallowest, not deepest. In 03 the deepest is BackOff, whose cause reads
-	// "repeated image-pull retry" -- a consequence. The shallowest failure is
-	// Failed, which names the image tag that does not exist. Depth is the right
-	// axis for "what paged you" and the wrong one for "what went wrong".
+	// "repeated image-pull retry", which is a consequence. The shallowest
+	// failure is Failed, and it names the tag that doesn't exist. Depth answers
+	// "what paged you", not "what went wrong".
 	Mechanism int
 
 	// Paged is the symptom that would have raised the alert: the deepest leaf of
 	// maximum severity.
 	//
-	// noNode when several leaves tie. 05-test-b has six equally-bad evictions
-	// and no way to know which one paged; naming the first would be a
-	// fabrication, so the incident is carried by its root instead.
+	// noNode when several leaves tie. 05 has six equally-bad evictions and no
+	// way to know which one paged, so the root carries the incident.
 	Paged int
 
 	// Severity is the maximum over the whole tree, never the root's. 03's root
@@ -84,9 +74,6 @@ type Incident struct {
 func (in Incident) Span() time.Duration { return in.Last.Sub(in.First) }
 
 // Incidents groups the reported findings into causal trees, most urgent first.
-//
-// Order is severity, then blast radius, then time -- the brief's "prioritised
-// summary", applied to incidents rather than to findings.
 //
 // A tree is included when any of its members survived suppression. A tree whose
 // members were all held back as background never becomes an incident, which is
@@ -211,11 +198,6 @@ func (c Chart) incidentAt(r int) Incident {
 
 // Remediation returns the incident's suggested next move, with the taxonomy's
 // placeholders resolved against the finding that earned it.
-//
-// Taken from the mechanism rather than the root: the fix for a rollout is
-// nothing, and the fix for the image it could not pull is the whole point.
-// Empty when the taxonomy has nothing useful to say, which renders nothing --
-// silence beats a vague gesture at "investigate further".
 func (c Chart) Remediation(in Incident) string {
 	f := c.Findings[in.Mechanism]
 	if f.Fix == "" {

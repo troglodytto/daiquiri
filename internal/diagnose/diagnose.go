@@ -1,37 +1,12 @@
-// Package diagnose interprets a causal forest: what kind of failure each
-// finding is, how completely it is accounted for, and whether it is worth the
-// reader's attention at all.
-//
-// # The problem it exists to solve
-//
-// Every capture in the corpus carries three findings that are real, tiny and
-// meaningless -- a single eviction, a single failed mount, a three-event
-// readiness blip. They must not be reported, or 01-healthy.jsonl announces
-// three problems on a healthy cluster. But 05-test-b contains evictions with
-// byte-identical shape that are the whole incident, and a node condition, also
-// byte-identical, that is the most important line in the file.
+// Package diagnose reads a causal forest and judges each finding: what kind of
+// failure it is, how well the capture accounts for it, and whether it belongs in
+// the report at all.
 //
 //	01  data-pipeline/Evicted[memory-pressure]  n=1  pods=1  span=0  root, no children
 //	05  auth-service/Evicted[disk-pressure]     n=1  pods=1  span=0  child of node-4
 //	05  node-4/NodeHasDiskPressure              n=1  pods=0  span=0  root, six children
 //
-// No threshold separates those three, because on shape there is nothing to
-// separate. The forest is what separates them, which is why this stage runs
-// after link rather than instead of it.
-//
-// # Prohibitions
-//
-// diagnose does not delete. Suppression is a flag on the verdict, the count is
-// disclosed in the header, and every finding stays in the chart -- the same rule
-// the pipeline already follows for noise records and skipped lines. It does not
-// re-read the record stream, mutate a finding, or re-derive causality; it reads
-// the forest it is handed.
-//
-// # Complexity
-//
-// Build is O(n²) with n findings: each verdict calls Children, which scans.
-// Captures produce 3 to 10 findings, so this is tens of comparisons. Space is
-// O(n) verdicts at 3 bytes each.
+// Only the edges tell them apart, so this stage runs after link. See D-44.
 package diagnose
 
 import (
@@ -43,41 +18,28 @@ import (
 	"github.com/troglodytto/daiquiri/internal/link"
 )
 
-// The bounds of "transient", each derived from the corpus rather than chosen.
+// What counts as transient. All three must hold; see D-43 for the derivation.
 //
-// Measured across all six captures: the three background findings in every file
-// run 1-3 occurrences on 1 pod over 0-16s, and every real problem runs 18-222
-// occurrences across 3-6 pods over 7m49s or more.
-//
-// They are a conjunction, not alternatives. Volume, blast radius and duration
-// are independent axes: 05-test-b's disk-pressure eviction of data-pipeline is
-// three occurrences -- small -- across three pods over four and a half minutes,
-// and calling that a blip because the count is low would be wrong.
+// Measured over the six captures: background findings run 1-3 occurrences on 1
+// pod over 0-16s. Real problems run 18-222 occurrences across 3-6 pods over
+// 7m49s or more.
 const (
-	// transientCount sits mid-gap between the background ceiling of 3 and the
-	// smallest real problem at 18.
+	// Mid-gap between the background ceiling of 3 and the smallest real
+	// problem at 18.
 	transientCount = 10
 
-	// transientPods is not a tuned threshold. It is the boundary between one
-	// instance misbehaving and the workload misbehaving. The comparison is <=
-	// rather than == because a Node or Deployment finding carries no pods at
-	// all, and a node condition must be able to be small -- what keeps it is
-	// that it explains things, not a pretence that it is large.
+	// One instance misbehaving, against the workload misbehaving. The
+	// comparison is <= because Node and Deployment findings carry no pods.
 	transientPods = 1
 
-	// transientSpan decides nothing on this corpus: no finding under the other
-	// two bounds has a span over 16s. It is here because a definition of
-	// "transient" that ignores duration would print "transient blip" beside a
-	// pod that has failed once a minute for twenty minutes. Its bounds are still
-	// observed -- 3.75x above the background ceiling, 4.5x below the shortest
-	// real problem.
+	// Nothing in this corpus is decided by the span bound. It stops the tool
+	// calling a pod that has failed once a minute for twenty minutes a blip.
 	transientSpan = 60 * time.Second
 )
 
-// insufficientMarker is what the scheduler writes when the cluster is full:
-// "0/6 nodes are available: 6 Insufficient cpu". Its absence is what separates a
-// capacity failure from a taint or affinity one, which sends the reader to a
-// different dashboard entirely.
+// insufficientMarker appears when the cluster is full: "0/6 nodes are
+// available: 6 Insufficient cpu". Without it, a FailedScheduling is a taint or
+// affinity problem, which is a different fix.
 const insufficientMarker = "Insufficient"
 
 // Pattern is the failure's category, in the brief's own vocabulary.
@@ -85,10 +47,8 @@ type Pattern uint8
 
 // Patterns, in the order the table tries them.
 const (
-	// PatternNone is a deliberate abstention, not an unset value. A deploy
-	// marker is an anchor rather than a failure, and an unclassified reason is
-	// one the taxonomy could not read -- handing either a diagnosis would be
-	// confident and wrong.
+	// PatternNone is an abstention. A deploy marker is an anchor, and an
+	// unrecognised reason is one we have no basis to label.
 	PatternNone Pattern = iota
 	// PatternCapacity is a pod the scheduler cannot place because the cluster
 	// has no room.
@@ -127,25 +87,21 @@ func (p Pattern) String() string {
 	}
 }
 
-// Confidence is how completely the capture accounts for a finding.
-//
-// It is decided by what the incident's root *is*, never by when it happened, so
-// it needs no threshold. It maps directly onto the confidence line the analysis
-// report has to state, and onto what would raise it.
+// Confidence is how completely the capture accounts for a finding. Decided by
+// what the incident's root is, so it needs no threshold. See D-34.
 type Confidence uint8
 
 // Confidence levels, weakest first.
 const (
 	// ConfidenceUnexplained is a failure with nothing before it and nothing
-	// after it. Raised by a longer capture, or by logs the tool cannot see.
+	// after it. A longer capture would raise it.
 	ConfidenceUnexplained Confidence = iota
-	// ConfidencePartial is a failure that explains other findings but is itself
-	// unexplained: the proximate cause is known and its origin is not. 02's
-	// OOM kills explain the crash-loop; what drove the memory growth is not in
-	// the capture.
+	// ConfidencePartial is a failure that explains others but is itself
+	// unexplained. 02's OOM kills explain the crash-loop; what drove the memory
+	// growth is off the front of the capture.
 	ConfidencePartial
-	// ConfidenceExplained is an incident whose root is a rollout or a node
-	// condition -- a trigger the capture names outright.
+	// ConfidenceExplained is an incident rooted in a rollout or node condition,
+	// which the capture names outright.
 	ConfidenceExplained
 )
 
@@ -163,37 +119,22 @@ func (c Confidence) String() string {
 	}
 }
 
-// Suppression records how each clause of the suppression predicate evaluated.
-//
-// Carried rather than discarded so a verdict can be audited instead of trusted.
-// "Suppressed: true" is a conclusion; these four are the reasons, and a reader
-// who disagrees with the outcome can see exactly which clause they disagree
-// with. It is what makes the JSON output something you can argue with.
+// Suppression is how each clause of the predicate evaluated. Published so a
+// reader can see which clause decided a verdict and argue with that one.
 type Suppression struct {
-	// Diagnosable is whether this is a recognised failure at all. False for a
-	// deploy marker and for any reason the taxonomy could not read.
+	// Diagnosable is false for a deploy marker and for any reason the taxonomy
+	// could not read.
 	Diagnosable bool
-
-	// Transient is whether the finding is small on count, pods and span.
+	// Transient is small on count, pods and span, all three.
 	Transient bool
-
-	// Root is whether nothing in the capture explains it.
+	// Root means nothing in the capture explains it.
 	Root bool
-
-	// Childless is whether it explains nothing.
+	// Childless means it explains nothing.
 	Childless bool
 }
 
-// Config reports the thresholds this stage applied.
-//
-// Exposed so output can carry the numbers behind its verdicts: a threshold
-// nobody can see is a threshold nobody can challenge, and every one of these was
-// derived from the corpus rather than chosen -- see docs/decisions.md D-43 and
-// D-54.
-//
-// Deliberately untagged. How these are spelled on a wire is the renderer's
-// business, not this stage's, and a serialisation tag here would make a
-// diagnosis stage own a file format.
+// Config reports the thresholds in force, so output can publish the numbers
+// behind its verdicts. See D-43 and D-54 for how each was derived.
 type Config struct {
 	TransientCount     int
 	TransientPods      int
@@ -222,27 +163,22 @@ type Diagnosis struct {
 	Confidence Confidence
 
 	// Because records how each clause of the suppression predicate evaluated.
-	//
-	// The outcome is not stored alongside it. Suppressed is derived from these
-	// four, so a diagnosis cannot state a verdict its own reasons contradict --
-	// which a hand-built chart otherwise can, and did.
+	// Suppressed is derived from it, so a verdict cannot contradict its own
+	// reasons. See D-56.
 	Because Suppression
 
-	// Cadence is the finding's rhythm: how often it recurs per object, and
-	// whether that interval is holding, widening or closing. Zero when there
-	// were too few intervals to measure.
+	// Cadence is how often the finding recurs per object, and which way that
+	// interval is moving. Zero below the sample minimum.
 	Cadence Cadence
 
-	// Signatures are the distinct things the finding's records say, ranked most
-	// informative first. This is the "why" the pattern alone cannot give: 222
-	// readiness failures reduce to three signatures, and the first of them is
-	// "HTTP probe failed with statuscode: 404".
+	// Signatures are the distinct things the records say, most informative
+	// first. 04's 222 readiness failures reduce to three, led by "HTTP probe
+	// failed with statuscode: 404".
 	Signatures []Signature
 }
 
-// Suppressed reports whether this finding is background the report should not
-// lead with. The finding is still present and still counted -- see the package
-// prohibition.
+// Suppressed reports whether this finding is background. It stays in the chart
+// and stays counted.
 func (d Diagnosis) Suppressed() bool { return d.Because.holds() }
 
 // Leading returns the most informative signature, if there is one.
@@ -255,24 +191,15 @@ func (d Diagnosis) Leading() (Signature, bool) {
 }
 
 // Chart is a forest with a verdict on every finding.
-//
-// Forest is embedded rather than held in a field, so a Chart is usable wherever
-// a Forest was and the three index-coupled slices travel as one value. Slices
-// that can be separated eventually get sorted apart, and the failure mode there
-// is a wrong diagnosis rather than a crash.
 type Chart struct {
 	link.Forest
 
 	// Diagnoses is parallel to Forest.Findings: Diagnoses[i] judges Findings[i].
 	Diagnoses []Diagnosis
 
-	// CaptureEnd is the timestamp of the last record in the capture, including
-	// the lifecycle noise no finding was built from.
-	//
-	// Needed to say whether an incident is ongoing, which no amount of staring
-	// at the findings can answer: a stage cannot tell "still failing" from
-	// "stopped failing" without knowing when the observation stopped. Zero
-	// disables the distinction rather than guessing.
+	// CaptureEnd is the last record's timestamp, lifecycle noise included.
+	// Without it there is no way to tell "still failing" from "stopped". Zero
+	// disables the distinction.
 	CaptureEnd time.Time
 }
 
@@ -310,24 +237,12 @@ func (c Chart) Reported() []int {
 }
 
 // SuppressedCount returns how many findings were held back as background.
-//
-// The header states it. A suppressed finding that is never counted is a fact
-// that silently left the building, and that is what makes an aggressive
-// threshold dangerous rather than merely wrong.
 func (c Chart) SuppressedCount() int {
 	return len(c.Diagnoses) - len(c.Reported())
 }
 
-// ShareExplanation reports whether every finding in kids is explained the same
-// way -- same causal rule, same reason, same leading signature.
-//
-// The question is asked of the rule rather than of the evidence text, because
-// evidence is display prose: 05-test-b's six evictions all fired
-// node-condition-named and all differ in the elapsed time they quote.
-//
-// Where it holds, the renderer states the explanation once and gives each child
-// a single line. Where any child differs on any of the three it does not hold,
-// so a child telling a different story can never be folded into its siblings.
+// ShareExplanation reports whether every finding in kids has the same causal
+// rule, reason and leading signature.
 func (c Chart) ShareExplanation(kids []int) bool {
 	if len(kids) < 2 {
 		return false
@@ -351,13 +266,11 @@ func (c Chart) ShareExplanation(kids []int) bool {
 	return true
 }
 
-// patternRule is one row of the pattern table.
+// patternRule is one row of the pattern table. Adding a pattern is adding a
+// row.
 //
-// Data, like the event taxonomy and the causal rules: adding a pattern is adding
-// a row. Order is priority, and it runs mechanism-first -- a pattern that names
-// *how* the failure works outranks one that names *what set it off*, because the
-// trigger is already stated by the causal edge in far more detail than a
-// one-word label could carry, and the mechanism is stated nowhere else.
+// Order is priority, mechanism first: the trigger is already spelled out by the
+// causal edge, and the mechanism appears nowhere else. See D-42.
 type patternRule struct {
 	name    string
 	pattern Pattern
@@ -377,13 +290,12 @@ var patternRules = []patternRule{
 		},
 	},
 
-	// A container restarting on a loop. Keyed on the rule rather than the
-	// reason, which is the whole purpose of classify carrying a rule ID: BackOff
-	// is both a crash-loop and an image-pull retry, and the brief names those as
-	// two different patterns.
+	// A container restarting on a loop. Keyed on the rule, because BackOff is
+	// both a crash-loop and an image-pull retry and the brief names those as
+	// different patterns.
 	//
-	// The transient test keeps the word "sustained" honest. One OOM kill is an
-	// incident; a loop is that kill happening over and over.
+	// The transient test keeps "sustained" honest: one OOM kill is an incident,
+	// a loop is that kill over and over.
 	{
 		name:    "crash-loop",
 		pattern: PatternCrashLoop,
@@ -400,7 +312,7 @@ var patternRules = []patternRule{
 
 	// The incident begins at a node condition. Inherited from the root, so the
 	// condition and all seven pods it evicted carry one label and the reader
-	// sees one node failure rather than seven unrelated warnings.
+	// sees one node failure, not seven warnings.
 	{
 		name:    "node-issue",
 		pattern: PatternNodeIssue,
@@ -410,7 +322,7 @@ var patternRules = []patternRule{
 	},
 
 	// The incident begins at a rollout. Last of the causal patterns because a
-	// rollout is a trigger rather than a mechanism.
+	// rollout is a trigger, not a mechanism.
 	{
 		name:    "deploy-correlated",
 		pattern: PatternDeployCorrelated,
@@ -434,7 +346,7 @@ var patternRules = []patternRule{
 func (c Chart) patternOf(i int) Pattern {
 	// Only a recognised failure gets a diagnosis. A deploy marker is an anchor
 	// rather than a failure, and a reason the taxonomy could not read is one we
-	// have no basis to categorise -- labelling either is the confident wrongness
+	// have no basis to categorise; labelling either is the confident wrongness
 	// the classification fallback exists to avoid.
 	if !diagnosable(c.Findings[i]) {
 		return PatternNone
@@ -469,33 +381,21 @@ func (c Chart) confidenceOf(i int) Confidence {
 }
 
 // holds reports whether every clause of the predicate is satisfied.
-//
-// One method rather than a repeated conjunction, so the decision and its record
-// cannot drift apart: there is exactly one place that says what "suppressed"
-// means, and it reads the same four values the output publishes.
 func (s Suppression) holds() bool {
 	return s.Diagnosable && s.Transient && s.Root && s.Childless
 }
 
 // suppressionOf evaluates each clause for finding i.
 func (c Chart) suppressionOf(i int) Suppression {
-	// Recognised failures only, and for two different reasons.
+	// Small, explained by nothing, explaining nothing. Recognised failures only.
 	//
-	// A deploy marker with no children is a rollout that broke nothing, which is
-	// worth a line rather than a hiding.
+	// A deploy marker with no children is a rollout that broke nothing, worth a
+	// line. And suppressing a finding claims we understand it well enough to
+	// know it doesn't matter, which is the one thing the fallback tells us we
+	// can't say. See D-46.
 	//
-	// An unrecognised reason is the stronger case. Suppressing a finding is a
-	// claim to understand it well enough to know it does not matter, and the
-	// whole point of the classification fallback is that we do not understand
-	// this one. 06-test-c plants the argument in the record's own body: "In case
-	// there are some new events that we haven't really recognized and handled,
-	// we'd much rather surface it, instead of burying it." It is transient,
-	// unexplained and childless on every measure, and burying it on shape would
-	// answer that record by doing exactly what it asks us not to.
-	// Small, explained by nothing, and explaining nothing. The last clause is
-	// load-bearing: without it 05-test-b's node condition -- one occurrence, no
-	// pods, zero span -- is suppressed, and the six evictions hanging off it go
-	// with it.
+	// The Childless clause carries 05: without it node-4's condition is
+	// suppressed and the six evictions hanging off it go with it.
 	return Suppression{
 		Diagnosable: diagnosable(c.Findings[i]),
 		Transient:   transient(c.Findings[i]),
@@ -505,10 +405,7 @@ func (c Chart) suppressionOf(i int) Suppression {
 }
 
 // diagnosable reports whether this stage may reach a verdict about a finding at
-// all -- whether it is a failure, and one the taxonomy could actually read.
-//
-// Both callers ask the same question and must not drift apart: a finding we
-// decline to categorise is exactly a finding we may not dismiss.
+// all; whether it is a failure, and one the taxonomy could actually read.
 func diagnosable(f group.Finding) bool {
 	return f.Category == classify.CategoryIssue && f.Recognised
 }

@@ -155,7 +155,7 @@ func TestClassifyBackOffIsSeveritySensitive(t *testing.T) {
 
 // TestClassifyFailedDistinguishesImagePull uses the three body shapes that
 // actually occur in the corpus. ImagePullBackOff and ErrImagePull are not event
-// reasons -- they appear only in the body of Failed events.
+// reasons; they appear only in the body of Failed events.
 func TestClassifyFailedDistinguishesImagePull(t *testing.T) {
 	imagePullBodies := []string{
 		`Failed to pull image "registry.internal/payment-service:v2.14.0-rc3": rpc error: code = NotFound desc = manifest not found`,
@@ -225,11 +225,6 @@ func TestClassifyUnknownReasons(t *testing.T) {
 // record planted in 06-test-c.jsonl, whose own body reads "In case there are
 // some new events that we haven't really recognized and handled, we'd much
 // rather surface it, instead of burying it".
-//
-// It is Normal severity, so routing unrecognised Normal events to noise --
-// which is what the fallback used to do -- buries exactly the record that asks
-// not to be buried. A named reason we cannot interpret is a gap in the taxonomy
-// and must be reportable; only an unnamed one has nothing to say.
 func TestClassifyNovelNormalReasonIsNotBuried(t *testing.T) {
 	got := classify.New().Classify(event.Event{
 		Reason:    "LALALALA",

@@ -13,7 +13,7 @@ const (
 	CategoryNoise Category = iota
 	// CategoryUnclassified is a named reason the taxonomy does not cover, at a
 	// severity too low to call an issue. It is reported, demoted, rather than
-	// buried -- a reason we cannot interpret is a gap in the taxonomy, and
+	// buried; a reason we cannot interpret is a gap in the taxonomy, and
 	// silently bucketing it as lifecycle is how a novel failure mode goes
 	// unnoticed. Grouping collapses many such records into one finding per
 	// reason, so disclosing them costs one line, not one line per record.
@@ -79,9 +79,9 @@ type Classification struct {
 	//
 	// Grouping keys on it so that two events sharing a reason but matching
 	// different rules stay separate findings. In 05-test-b one workload is
-	// Evicted twice for genuinely different reasons -- once for node memory
+	// Evicted twice for genuinely different reasons; once for node memory
 	// pressure as background noise, later as part of a node-wide disk pressure
-	// incident -- and merging them drags the incident's start time thirteen
+	// incident; and merging them drags the incident's start time thirteen
 	// minutes earlier than the cause that explains it.
 	//
 	// Deliberately not Cause: that is display text, and rewording a sentence
@@ -95,20 +95,12 @@ type Classification struct {
 }
 
 // Classifier assigns a category and severity to each event, from a table.
-//
-// It holds no state. It is a struct rather than a bare function so that
-// internal/triage can declare a narrow interface over it and substitute a fake,
-// consistently with how every other stage is consumed.
 type Classifier struct{}
 
 // New returns a Classifier ready for use.
 func New() *Classifier { return &Classifier{} }
 
 // Classify returns the verdict for e.
-//
-// Classification is total: every event gets a Classification and there is no
-// error path, because for no input is "cannot classify" more useful than the
-// conservative fallback plus Recognised=false.
 func (c *Classifier) Classify(e event.Event) Classification {
 	rules, known := taxonomy[e.Reason]
 
@@ -137,23 +129,6 @@ func (c *Classifier) Classify(e event.Event) Classification {
 }
 
 // fallback classifies an event whose reason is not in the taxonomy.
-//
-// A warning we do not recognise is surfaced as an issue: the cost of one
-// spurious low-confidence finding is far lower than the cost of silently
-// dropping a novel failure mode.
-//
-// A *named* reason at Normal severity is surfaced too, demoted, rather than
-// swept in with lifecycle traffic. Kubernetes Normal traffic is overwhelmingly
-// routine, but a reason absent from the taxonomy is a gap in our
-// interpretation, not a fact about the cluster -- and grouping collapses every
-// occurrence of it into a single finding, so admitting it costs one line.
-//
-// An *unnamed* reason is the one case that stays noise. There is no reason
-// string to report, so a finding for it would say nothing a reader could act
-// on.
-//
-// Recognised is false throughout, so the report can also state in aggregate how
-// much of the capture it could not interpret.
 func fallback(e event.Event) Classification {
 	if e.Severity >= event.SeverityWarning {
 		return Classification{

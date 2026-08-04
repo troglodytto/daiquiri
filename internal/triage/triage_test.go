@@ -87,16 +87,6 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 
 // TestHealthyCaptureSurfacesNothingSustained is the brief's "no false
 // positives on 01-healthy.jsonl" criterion, expressed at the grouping stage.
-//
-// The capture is not free of warnings -- every one of the six fixtures carries
-// the same background floor of 1 Evicted, 1 FailedMount and 3 Unhealthy on
-// randomly chosen workloads. Those are genuine Warning records that the
-// taxonomy correctly calls issues, so no reason-based filter can remove them.
-//
-// What must hold is that none of them looks like a real problem: each is a
-// handful of events on a single pod inside a few seconds. Suppressing them is
-// the diagnose stage's job; grouping's job is to preserve the shape that makes
-// the decision possible.
 func TestHealthyCaptureSurfacesNothingSustained(t *testing.T) {
 	res := run(t, "01-healthy.jsonl")
 
@@ -129,8 +119,8 @@ func TestMemoryLeakCoalescesAcrossPodsAndNodes(t *testing.T) {
 }
 
 // TestImagePullIsDistinguishedByBody covers 03. ImagePullBackOff and
-// ErrImagePull are not Kubernetes event reasons -- they appear only inside the
-// body of Failed events -- so only a body-sensitive rule tells an image-pull
+// ErrImagePull are not Kubernetes event reasons; they appear only inside the
+// body of Failed events; so only a body-sensitive rule tells an image-pull
 // failure from a sandbox-creation failure.
 func TestImagePullIsDistinguishedByBody(t *testing.T) {
 	res := run(t, "03-image-pull-failure.jsonl")
@@ -149,11 +139,6 @@ func TestImagePullIsDistinguishedByBody(t *testing.T) {
 // 10:02:32 on node-2 for node memory pressure, unrelated background noise, and
 // three times from 10:15:25 on node-4 as part of a node-wide disk pressure
 // incident that began at 10:15:00.
-//
-// Keyed on reason alone these merge, and the merged finding starts at 10:02:32
-// -- thirteen minutes before the node condition that explains three quarters of
-// it. A cause cannot postdate its effect, so the causal link would then be
-// correctly rejected and the whole diagnosis lost.
 func TestEvictionsSplitByFailureMode(t *testing.T) {
 	res := run(t, "05-test-b.jsonl")
 
@@ -193,15 +178,6 @@ func TestNodeConditionCarriesItsNodeIdentity(t *testing.T) {
 
 // TestMalformedLineIsSkippedAndDisclosed covers the probe line planted at the
 // end of 06, which is commented out and therefore not JSON.
-//
-// A capture the tool could not fully read must never be able to masquerade as a
-// clean one, so the line is counted rather than silently dropped and the count
-// reaches the header. Ingest continues: one bad line in twenty thousand is a
-// reason to say so, not a reason to abandon the run.
-//
-// The fallback branches for a reason that IS readable but not in the taxonomy --
-// surfaced as an issue when Warning, demoted to unclassified when Normal -- are
-// covered by classify's own tests. No capture exercises them any more.
 func TestMalformedLineIsSkippedAndDisclosed(t *testing.T) {
 	res := run(t, "06-test-c.jsonl")
 
@@ -214,7 +190,7 @@ func TestMalformedLineIsSkippedAndDisclosed(t *testing.T) {
 
 // TestFindingsAreOrderedAndDeterministic guards the trap that Go randomises map
 // iteration. 05-test-b has evictions inside the same second, so a sort on
-// FirstSeen alone leaves ties broken by map order -- and golden tests would
+// FirstSeen alone leaves ties broken by map order; and golden tests would
 // then fail intermittently rather than reproducibly.
 func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
 	first := run(t, "05-test-b.jsonl").Chart.Findings
@@ -236,11 +212,6 @@ func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
 
 // TestForestMatchesTheFixtures pins the causal edge derived for every finding in
 // every provided capture.
-//
-// These assignments were produced by simulating the rules against the raw JSONL
-// before internal/link existed, so they are acceptance data rather than a test
-// written to agree with the code. An empty parent means the finding is a root:
-// nothing in the capture explains it.
 //
 // Findings are labelled workload/reason[rule] because reason alone is ambiguous:
 // 05-test-b evicts data-pipeline twice for different causes, and only one of
@@ -358,11 +329,6 @@ func TestNodePressureIncidentIsOneTree(t *testing.T) {
 // TestForestInvariantsHoldOnEveryFixture verifies the structure itself rather
 // than any particular edge, and re-derives every edge's claim from the findings
 // without consulting the evidence string that asserts it.
-//
-// The point is to catch a forest that is internally consistent but wrong: an
-// edge whose evidence says "same pod X" when the two findings share no pod, or
-// a parent that is not actually earlier. Those would pass every expectation
-// written alongside the code, because they would be wrong in the same direction.
 func TestForestInvariantsHoldOnEveryFixture(t *testing.T) {
 	fixtures := []string{
 		"01-healthy.jsonl", "02-memory-leak.jsonl", "03-image-pull-failure.jsonl",
@@ -464,11 +430,6 @@ func anyBodyContains(f group.Finding, token string) bool {
 
 // TestDiagnosisMatchesTheFixtures is the acceptance test for the diagnose stage.
 //
-// Every reported finding is pinned to its pattern, and every capture to how many
-// findings it holds back. The expectations were derived from the raw captures
-// before the stage was written, so a change here is a change in behaviour rather
-// than a test that needs updating.
-//
 // The two numbers that matter most are at the ends. 01-healthy reports nothing,
 // which is the whole point of suppressing anything at all. 05-test-b reports
 // seven, because a node condition and the six workloads it evicted are one
@@ -539,9 +500,9 @@ func TestDiagnosisMatchesTheFixtures(t *testing.T) {
 // TestEveryCaptureHoldsBackTheSameThreeShapes is corroboration rather than a
 // second assertion of the counts above.
 //
-// The brief plants an identical background floor in all six files -- one
+// The brief plants an identical background floor in all six files; one
 // eviction for node memory pressure, one failed mount, one three-event readiness
-// blip -- and a predicate tuned to whichever capture it was written against
+// blip; and a predicate tuned to whichever capture it was written against
 // would not land on the same three in the other five. That it does is the
 // evidence that D-43's bounds are not fitted to this corpus.
 func TestEveryCaptureHoldsBackTheSameThreeShapes(t *testing.T) {
@@ -606,11 +567,6 @@ func TestConfidenceMatchesTheFixtures(t *testing.T) {
 
 // TestIncidentsMatchTheFixtures is the acceptance test for the incident view:
 // what the report leads with, for every capture.
-//
-// Root, mechanism and paged are three different nodes answering three different
-// questions, and conflating any two of them was a real bug -- the verdict once
-// quoted 03's BackOff ("repeated image-pull retry") instead of the Failed that
-// names the tag which does not exist.
 func TestIncidentsMatchTheFixtures(t *testing.T) {
 	tests := []struct {
 		fixture      string
@@ -726,7 +682,7 @@ func TestCadenceMatchesTheFixtures(t *testing.T) {
 		trend                     string
 	}{
 		// The sentence that makes a memory leak legible: one kill per pod every
-		// four minutes. Reported steady -- the means do contract, 4m43s to
+		// four minutes. Reported steady; the means do contract, 4m43s to
 		// 3m43s, and that is below the threshold this corpus supports.
 		{"02-memory-leak.jsonl", "recommendation-service", "OOMKilling", 4, 22, 251240 * time.Millisecond, "steady"},
 		{"02-memory-leak.jsonl", "recommendation-service", "BackOff", 4, 87, 10800 * time.Millisecond, "steady"},

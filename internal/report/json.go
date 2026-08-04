@@ -12,45 +12,26 @@ import (
 )
 
 // schemaVersion identifies the document shape.
-//
-// Present from the first release rather than added when it first breaks: a
-// consumer that cannot tell which shape it is reading has to guess, and the
-// point of this output is to be machine-read.
 const schemaVersion = 1
 
-// Document is the whole run, in a form you can argue with.
+// Document is the whole run, in a form you can argue with. Every verdict sits
+// next to the inputs that produced it, so each finding carries:
 //
-// The organising principle is that **every verdict sits next to the inputs that
-// produced it**. A conclusion on its own is something you have to trust; a
-// conclusion beside its evidence and the thresholds that were applied is
-// something you can check, and disagree with, using nothing but this file.
+//   - the identity it was coalesced on
+//   - every member record, verbatim, so counts are recomputable
+//   - the causal edge, with the rule that fired and the evidence for it
+//   - the diagnosis, with each suppression clause published separately
 //
-// So each finding carries:
-//
-//   - the identity it was coalesced on, so you can see why these records are one
-//     fact rather than several
-//   - every member record, verbatim, so every count and time range is
-//     recomputable rather than merely asserted
-//   - the causal edge with the rule that fired and the evidence for it
-//   - the diagnosis, and for suppression the value of each clause separately, so
-//     "suppressed: true" can be traced to which clause decided it
-//
-// Suppressed findings are included, flagged. Excluding them would make the
-// document agree with the tool by construction, which is the opposite of the
-// point.
-//
-// Lifecycle noise is counted but not reproduced. It is roughly 19,800 of 20,000
-// records, it is already in the input file byte for byte, and duplicating it
-// would make this document larger than its own source while adding nothing that
-// the source does not already hold. Everything the tool *concluded* is here;
-// everything it *read* is in the file it read.
+// Lifecycle noise is counted but not reproduced: ~19,800 of 20,000 records,
+// already in the input file byte for byte. Everything the tool concluded is
+// here. Everything it read is in the file it read. See D-55.
 type Document struct {
 	Schema  int     `json:"schema"`
 	Tool    toolDoc `json:"tool"`
 	Capture capture `json:"capture"`
 
 	// Incidents are causal trees, ranked as the report ranks them. They index
-	// into Findings rather than nesting it, so no finding is duplicated and a
+	// into Findings, so no finding is duplicated and a
 	// consumer can walk either structure.
 	Incidents []incident `json:"incidents"`
 
@@ -60,9 +41,6 @@ type Document struct {
 }
 
 // toolDoc records what produced the document and under which numbers.
-//
-// The thresholds travel with the verdicts they decided. A threshold nobody can
-// see is a threshold nobody can challenge.
 type toolDoc struct {
 	Name         string     `json:"name"`
 	Version      string     `json:"version"`
@@ -143,8 +121,7 @@ type finding struct {
 	// Edge is null for a root.
 	Edge *edge `json:"edge"`
 
-	// Records is every member, verbatim. This is what makes Shape checkable
-	// rather than merely stated.
+	// Records is every member, verbatim, so Shape is checkable.
 	Records []record `json:"records"`
 }
 
@@ -164,7 +141,7 @@ type verdict struct {
 
 	// Cause is what the cluster did; Meaning is what that says about the
 	// service, without Kubernetes vocabulary. Fix keeps its {placeholders}
-	// unresolved here -- the resolved form is on the incident.
+	// unresolved here; the resolved form is on the incident.
 	Cause   string `json:"cause,omitempty"`
 	Meaning string `json:"meaning,omitempty"`
 	Fix     string `json:"fix,omitempty"`
@@ -185,7 +162,7 @@ type shape struct {
 }
 
 type diagnosis struct {
-	// Pattern is empty where the tool declined to categorise -- a deploy marker
+	// Pattern is empty where the tool declined to categorise; a deploy marker
 	// or a reason not in the taxonomy. Empty is an abstention, not an unset
 	// value.
 	Pattern    string `json:"pattern"`
@@ -199,13 +176,9 @@ type diagnosis struct {
 }
 
 // because is diagnose.Suppression on the wire.
-//
-// The names are spelled as the questions they answer, because this object is
-// the whole reason the document is auditable and it should read as an argument
-// rather than as four flags.
 type because struct {
 	// Diagnosable: is this a recognised failure at all? False for a rollout, and
-	// for any reason the taxonomy could not read -- and we never dismiss what we
+	// for any reason the taxonomy could not read; and we never dismiss what we
 	// could not read.
 	Diagnosable bool `json:"is_a_recognised_failure"`
 
@@ -226,8 +199,8 @@ type signature struct {
 	Text  string `json:"text"`
 	Count int    `json:"count"`
 
-	// Specific marks a signature naming something concrete -- an image, an
-	// amount, a status code -- as opposed to one restating the reason. Ranking
+	// Specific marks a signature naming something concrete; an image, an
+	// amount, a status code; as opposed to one restating the reason. Ranking
 	// puts specific first, then frequency.
 	Specific bool `json:"specific"`
 
@@ -261,7 +234,7 @@ type edge struct {
 	Kind   string `json:"kind"`
 	Rule   string `json:"rule"`
 
-	// Evidence is written to be checked against the capture rather than trusted.
+	// Evidence is written to be checked against the capture.
 	Evidence string `json:"evidence"`
 
 	// Delay is how long after the parent this finding began.
@@ -280,9 +253,6 @@ type record struct {
 }
 
 // WriteJSON encodes the whole run to w.
-//
-// Indented, because a human reads this too -- to write the analysis report, and
-// to check the tool. jq works either way; a person diffing two runs does not.
 func WriteJSON(w io.Writer, res triage.Result, version string) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -463,10 +433,6 @@ func recordOf(e event.Event) record {
 }
 
 // stamp formats a timestamp, or empty for the zero value.
-//
-// RFC3339 with milliseconds: the captures distinguish evictions that are
-// fractions of a second apart, and a format that rounded them would make two
-// findings look simultaneous.
 func stamp(t time.Time) string {
 	if t.IsZero() {
 		return ""
@@ -475,7 +441,7 @@ func stamp(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05.000Z")
 }
 
-// nonNil returns an empty slice rather than nil, so absence encodes as [] and
+// nonNil returns an empty slice, so absence encodes as [] and
 // not as null. A consumer iterating the field should not have to special-case
 // "this finding is not about pods".
 func nonNil(s []string) []string {

@@ -45,11 +45,6 @@ const (
 )
 
 // writeIncidents renders every incident, most urgent first.
-//
-// When a workload is being traced, only incidents touching it are rendered, and
-// the rest are accounted for in one line rather than dropped -- a filtered
-// report that does not say what it filtered is a report that can mislead by
-// omission.
 func (r *Renderer) writeIncidents(b *strings.Builder, c diagnose.Chart) {
 	all := c.Incidents()
 
@@ -125,12 +120,6 @@ func (r *Renderer) writeIncidentRule(b *strings.Builder, n, total int, in diagno
 }
 
 // writeVerdict writes the block a reader can stop at.
-//
-// Four parts, in the order a question gets asked: what set it off, what that
-// broke, the cluster's own words for it, and how bad it is. Nothing here is
-// composed prose -- the trigger is templated from the root's kind, the
-// explanation is the taxonomy's own sentence, and the quoted line is a record
-// body with only its volatile tokens replaced.
 func (r *Renderer) writeVerdict(b *strings.Builder, c diagnose.Chart, in diagnose.Incident) {
 	root := c.Findings[in.Root]
 	mech := c.Findings[in.Mechanism]
@@ -190,10 +179,6 @@ func (r *Renderer) writeLabelled(b *strings.Builder, tag string, tagStyle lipglo
 }
 
 // trigger phrases the root in the terms a reader thinks in.
-//
-// A table over the root's kind rather than a sentence per incident: a rollout,
-// a node condition, an unreadable reason and a bare failure are four different
-// openings, and there is no fifth.
 func trigger(f group.Finding) string {
 	switch {
 	case f.Category == classify.CategoryDeployMarker:
@@ -257,7 +242,7 @@ func (r *Renderer) writeNode(b *strings.Builder, c diagnose.Chart, in diagnose.I
 
 	// Emptiness is decided on the unstyled text. Painting an empty string still
 	// emits the escape sequences that open and close the style, so a styled ""
-	// is not "" -- and testing the painted value produced a marker row padded to
+	// is not ""; and testing the painted value produced a marker row padded to
 	// the frame in colour and unpadded in plain, which is exactly the divergence
 	// the emphasis-only contract forbids.
 	scope := scopeOf(f)
@@ -384,10 +369,6 @@ func (r *Renderer) writeSignatures(b *strings.Builder, inner string, d diagnose.
 }
 
 // rhythm renders a finding's cadence, or empty where too few intervals existed.
-//
-// The trend is named only when it is not steady: "steady" beside a probe that
-// fires on a fixed period says nothing, where "easing" beside a retry loop says
-// the gaps will keep widening until the fault is fixed.
 func rhythm(c diagnose.Cadence, f group.Finding) string {
 	if !c.Known() {
 		return ""
@@ -480,11 +461,6 @@ func (r *Renderer) writeCollapsed(b *strings.Builder, c diagnose.Chart, in diagn
 }
 
 // tracedNode returns the single finding to mark as where the reader is.
-//
-// The latest matching member, not every match. In 03 all three findings belong
-// to payment-service, and marking all three says nothing -- the useful mark is
-// the symptom you were looking at when you were paged, which is the last thing
-// your service did. Returns -1 when nothing is being traced.
 func (r *Renderer) tracedNode(c diagnose.Chart, in diagnose.Incident) int {
 	if r.trace == "" {
 		return -1
@@ -538,10 +514,6 @@ func scopeOf(f group.Finding) string {
 
 // wrapText breaks s to width, preferring a space and falling back to a
 // punctuation boundary.
-//
-// The fallback matters: an image reference has no spaces, and splitting
-// "payment-service:v2.14.0-rc3" mid-token produces a line nobody can paste into
-// a shell or quote into an analysis report.
 func wrapText(s string, w int) []string {
 	if w < 20 {
 		w = 20

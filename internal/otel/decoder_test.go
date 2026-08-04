@@ -14,14 +14,11 @@ import (
 // finding must correlate on is not in the field that names it.
 //
 // A Node-kind event carries its identity in resource["k8s.object.name"] and has
-// no resource["k8s.node.name"] at all -- kubelets emit that field, and a node
+// no resource["k8s.node.name"] at all; kubelets emit that field, and a node
 // condition comes from the node controller. The single NodeHasDiskPressure
 // record in the provided captures is exactly this shape, and it is the anchor
 // for every node-correlation rule downstream. Leaving Node empty makes those
 // rules silently fail to match the very event they exist to find.
-//
-// Records are single-line by construction: the decoder splits on newlines, so a
-// pretty-printed fixture would arrive as several malformed lines.
 func TestDecodeNormalisesNodeIdentity(t *testing.T) {
 	tests := []struct {
 		name     string
