@@ -556,7 +556,7 @@ func TestEveryCaptureHoldsBackTheSameThreeShapes(t *testing.T) {
 
 			var held []string
 			for i, d := range c.Diagnoses {
-				if !d.Suppressed {
+				if !d.Suppressed() {
 					continue
 				}
 

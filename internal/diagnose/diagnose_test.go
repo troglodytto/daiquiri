@@ -106,23 +106,23 @@ func TestSuppressionNeedsAllFourClauses(t *testing.T) {
 
 	t.Run("unexplained and unexplanatory is suppressed", func(t *testing.T) {
 		c := diagnose.Build(forest([]group.Finding{decoy}, root), start.Add(time.Hour))
-		assert.True(t, c.Diagnoses[0].Suppressed)
+		assert.True(t, c.Diagnoses[0].Suppressed())
 	})
 
 	t.Run("explanatory survives", func(t *testing.T) {
 		c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0), start.Add(time.Hour))
-		assert.False(t, c.Diagnoses[0].Suppressed, "it explains six evictions")
+		assert.False(t, c.Diagnoses[0].Suppressed(), "it explains six evictions")
 	})
 
 	t.Run("explained survives", func(t *testing.T) {
 		c := diagnose.Build(forest([]group.Finding{condition, evicted}, root, 0), start.Add(time.Hour))
-		assert.False(t, c.Diagnoses[1].Suppressed, "the node condition explains it")
+		assert.False(t, c.Diagnoses[1].Suppressed(), "the node condition explains it")
 	})
 
 	t.Run("large and unexplained survives", func(t *testing.T) {
 		big := issue("checkout-service", "unhealthy/readiness", 222, 5, 8*time.Minute)
 		c := diagnose.Build(forest([]group.Finding{big}, root), start.Add(time.Hour))
-		assert.False(t, c.Diagnoses[0].Suppressed, "shape alone keeps it")
+		assert.False(t, c.Diagnoses[0].Suppressed(), "shape alone keeps it")
 	})
 }
 
@@ -149,8 +149,8 @@ func TestSuppressionOnlyAppliesToIssues(t *testing.T) {
 
 	c := diagnose.Build(forest([]group.Finding{unclassified, marker}, root, root), start.Add(time.Hour))
 
-	assert.False(t, c.Diagnoses[0].Suppressed, "an uninterpretable reason must stay visible")
-	assert.False(t, c.Diagnoses[1].Suppressed, "a rollout is an anchor, not background")
+	assert.False(t, c.Diagnoses[0].Suppressed(), "an uninterpretable reason must stay visible")
+	assert.False(t, c.Diagnoses[1].Suppressed(), "a rollout is an anchor, not background")
 }
 
 // TestAnUnrecognisedReasonIsNeitherLabelledNorBuried covers D-46.
@@ -172,7 +172,7 @@ func TestAnUnrecognisedReasonIsNeitherLabelledNorBuried(t *testing.T) {
 
 	c := diagnose.Build(forest([]group.Finding{probe}, root), start.Add(time.Hour))
 
-	assert.False(t, c.Diagnoses[0].Suppressed, "we cannot dismiss what we could not read")
+	assert.False(t, c.Diagnoses[0].Suppressed(), "we cannot dismiss what we could not read")
 	assert.Equal(t, diagnose.PatternNone, c.Diagnoses[0].Pattern, "and we cannot categorise it either")
 }
 

@@ -35,6 +35,9 @@ func run(args []string, stderr io.Writer) int {
 	// should not have to know the tool had a second thing to show them.
 	tableOnly := flagSet.Bool("table", false,
 		"render only the prioritised summary table")
+	asJSON := flagSet.Bool("json", false,
+		"emit the whole run as JSON: every finding with its member records, causal "+
+			"edges, signatures, and the thresholds each verdict was decided by")
 	treeOnly := flagSet.Bool("tree", false,
 		"render only the causal incident view: root cause, impact, how we got there, "+
 			"and the recommended next move")
@@ -63,9 +66,23 @@ func run(args []string, stderr io.Writer) int {
 		return exitFail
 	}
 
+	if *asJSON && (*tableOnly || *treeOnly) {
+		_, _ = fmt.Fprintf(stderr, "--json replaces the human views; do not combine it with --table or --tree\n")
+		return exitUsage
+	}
+
 	if *tableOnly && *treeOnly {
 		_, _ = fmt.Fprintf(stderr, "--table and --tree are mutually exclusive; pass neither for both\n")
 		return exitUsage
+	}
+
+	if *asJSON {
+		if err := report.WriteJSON(os.Stdout, res, version); err != nil {
+			_, _ = fmt.Fprintf(stderr, "triage: writing json: %v\n", err)
+			return exitFail
+		}
+
+		return exitOK
 	}
 
 	renderer := report.New(os.Stdout)

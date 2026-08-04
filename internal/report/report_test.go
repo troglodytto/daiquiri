@@ -3,6 +3,7 @@ package report_test
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,12 +40,47 @@ func at(hhmmss string) time.Time {
 }
 
 func finding(sev event.Severity, workload, ns, reason string, n int, pods, nodes []string, first, last time.Time) group.Finding {
-	return group.Finding{
+	f := group.Finding{
 		Kind: event.KindPod, Workload: workload, Namespace: ns, Reason: reason,
-		Category: classify.CategoryIssue, Severity: sev,
+		Category: classify.CategoryIssue, Severity: sev, Recognised: true,
 		Cause: "cause for " + reason,
 		Count: n, FirstSeen: first, LastSeen: last, Pods: pods, Nodes: nodes,
 	}
+
+	// Member records are synthesised rather than omitted. A finding that claims
+	// 24 occurrences and carries none cannot satisfy the property the JSON
+	// document rests on -- that every count is recomputable from the records
+	// beside it -- and a fixture that cannot satisfy it is a fixture that would
+	// have let the encoder drop them silently.
+	step := time.Duration(0)
+	if n > 1 {
+		step = last.Sub(first) / time.Duration(n-1)
+	}
+
+	for i := 0; i < n; i++ {
+		pod := workload + "-instance"
+		if len(pods) > 0 {
+			pod = pods[i%len(pods)]
+		}
+
+		node := ""
+		if len(nodes) > 0 {
+			node = nodes[i%len(nodes)]
+		}
+
+		f.Events = append(f.Events, event.Event{
+			Timestamp: first.Add(step * time.Duration(i)),
+			Severity:  sev,
+			Reason:    reason,
+			Body:      reason + " on " + pod,
+			Node:      node,
+			Count:     1,
+			EventUID:  fmt.Sprintf("%s-%s-%d", workload, reason, i),
+			Object:    event.Object{Kind: event.KindPod, Name: pod},
+		})
+	}
+
+	return f
 }
 
 // nodePressure mirrors the shape of 05-test-b closely enough to exercise every
@@ -68,7 +104,8 @@ func nodePressure() triage.Result {
 
 	// One of each: a held-back blip, an unlabelled finding, and two patterns.
 	diagnoses := []diagnose.Diagnosis{
-		{Pattern: diagnose.PatternTransient, Confidence: diagnose.ConfidenceUnexplained, Suppressed: true},
+		{Pattern: diagnose.PatternTransient, Confidence: diagnose.ConfidenceUnexplained,
+			Because: allClausesHold},
 		{Pattern: diagnose.PatternNodeIssue, Confidence: diagnose.ConfidenceExplained},
 		{Pattern: diagnose.PatternNodeIssue, Confidence: diagnose.ConfidenceExplained},
 		{Pattern: diagnose.PatternNone, Confidence: diagnose.ConfidenceUnexplained},
@@ -92,7 +129,20 @@ func nodeFinding(node string, first time.Time) group.Finding {
 		Reason: "NodeHasDiskPressure", Category: classify.CategoryIssue,
 		Severity: event.SeverityCritical, Cause: "node is under disk pressure",
 		Count: 1, FirstSeen: first, LastSeen: first, Nodes: []string{node},
+		Events: []event.Event{{
+			Timestamp: first, Severity: event.SeverityCritical,
+			Reason: "NodeHasDiskPressure", Body: "Node " + node + " status is now: NodeHasDiskPressure",
+			Node: node, Count: 1, EventUID: node + "-pressure",
+			Object: event.Object{Kind: event.KindNode, Name: node},
+		}},
 	}
+}
+
+// allClausesHold is the suppression record for a finding that is background on
+// every count. Suppressed is derived from it, so a fixture cannot claim an
+// outcome its own reasons contradict.
+var allClausesHold = diagnose.Suppression{
+	Diagnosable: true, Transient: true, Root: true, Childless: true,
 }
 
 // roots builds n parentless edges.
@@ -205,7 +255,7 @@ func healthy() triage.Result {
 
 	diagnoses := make([]diagnose.Diagnosis, len(findings))
 	for i := range diagnoses {
-		diagnoses[i] = diagnose.Diagnosis{Pattern: diagnose.PatternTransient, Suppressed: true}
+		diagnoses[i] = diagnose.Diagnosis{Pattern: diagnose.PatternTransient, Because: allClausesHold}
 	}
 
 	return triage.Result{
@@ -404,6 +454,12 @@ func deployFailure() triage.Result {
 		Reason: "ScalingReplicaSet", Rule: "deploy/scaled",
 		Category: classify.CategoryDeployMarker, Severity: event.SeverityInfo, Recognised: true,
 		Count: 1, FirstSeen: at("10:17:59.977"), LastSeen: at("10:17:59.977"),
+		Events: []event.Event{{
+			Timestamp: at("10:17:59.977"), Severity: event.SeverityInfo,
+			Reason: "ScalingReplicaSet", Body: "Scaled up replica set payment-service-9e3f1a2b8 to 3",
+			Count: 1, EventUID: "payment-scale",
+			Object: event.Object{Kind: "Deployment", Name: "payment-service"},
+		}},
 	}
 	pull := finding(event.SeverityCritical, "payment-service", "production", "Failed", 24,
 		[]string{"payment-service-9e3f1a2b8-005e2", "payment-service-9e3f1a2b8-7f871", "payment-service-9e3f1a2b8-c257b"},

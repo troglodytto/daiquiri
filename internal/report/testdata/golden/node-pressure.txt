@@ -23,7 +23,7 @@ TIME          SEVERITY  WORKLOAD       NAMESPACE  REASON               COUNT  PO
 
 ━━ INCIDENT 2 of 3 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ WARNING · explained ━━
 
-   ROOT CAUSE    unknown — data-pipeline reported Evicted  at 10:15:25.779
+   ROOT CAUSE    data-pipeline, Evicted  at 10:15:25.779
                  cause for Evicted
 
    IMPACT        3 events · 3 pods · 4m31s · stopped before capture end
@@ -36,7 +36,7 @@ TIME          SEVERITY  WORKLOAD       NAMESPACE  REASON               COUNT  PO
 
 ━━ INCIDENT 3 of 3 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ INFO · unexplained ━━
 
-   ROOT CAUSE    unknown — data-pipeline reported FailedScheduling  at 10:20:04.679
+   ROOT CAUSE    data-pipeline, FailedScheduling  at 10:20:04.679
                  cause for FailedScheduling
                  ⚠ unexplained — nothing in this capture explains what came before
 
