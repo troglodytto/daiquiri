@@ -191,6 +191,7 @@ Below that, `how we got there` shows the chain:
 | `▪` | a **specific** signature: it names an image, an amount, a status code |
 | *(dim, unmarked)* | a generic signature that only restates the reason |
 | `x/y` | how many of the finding's records carry that exact line |
+| `→` | what that particular body *proves* — stated as evidence, not instructions |
 | `⤷` | why the causal edge is believed — check it against the capture |
 | `▾` | one explanation shared by every child below it |
 | `ROOT CAUSE` | where the trail ends |
@@ -214,6 +215,48 @@ Signatures are ranked by **specificity first, frequency second**. In
 `03-image-pull-failure` the most common line is `Error: ImagePullBackOff` (18 of
 24), which only restates the reason; the line naming the tag that does not exist
 occurs 3 times and leads anyway.
+
+Where the body proves something the reason alone cannot, the signature carries a
+reading. One `Unhealthy` covers three different situations:
+
+```
+▪ Readiness probe failed: HTTP probe failed with statuscode: 404       178/222
+  → the server answered the probe -- with a status saying this path is
+    not what it wants
+▪ Readiness probe failed: ... connect: connection refused               24/222
+  → nothing was listening on that port when the probe fired
+```
+
+Those prove opposite things about the process — one is running and answering,
+the other is not running at all. The readings state what the evidence
+establishes and stop there; you debug, the tool just sharpens the lens.
+
+Readings exist only for shapes these captures contain. Anything else carries no
+reading rather than a plausible-sounding guess.
+
+### Cadence
+
+A repeating finding has a rhythm, and the rhythm is often the diagnosis:
+
+```
+sustained crash-loop  ·  every ~4m11s per pod
+deploy-correlated failure  ·  every ~40.5s per pod, easing 13s → 2m35s
+```
+
+*One OOM kill per pod every four minutes* says more about a memory leak than the
+count and the span together. `easing` is Kubernetes backing off — the gaps will
+keep widening whatever you do until the image is fixed.
+
+Intervals are measured **per pod and then pooled**, never across the finding.
+04's five pods are probed independently, so the finding-wide gap is 1.4s where
+the actual probe period is 10.5s — one is an artefact of the replica count, the
+other is a fact about the deployment.
+
+The trend is named only when it is unmistakable (a 3× move between the early and
+late halves). `02-memory-leak` contracts from 4m43s to 3m43s and is reported
+**steady**: a 21% move across 22 samples that already range from 169s to 326s is
+not a claim this data supports. Both means are in the JSON so you can judge it
+yourself.
 
 ## Colour
 

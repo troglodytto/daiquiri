@@ -228,6 +228,11 @@ type Diagnosis struct {
 	// which a hand-built chart otherwise can, and did.
 	Because Suppression
 
+	// Cadence is the finding's rhythm: how often it recurs per object, and
+	// whether that interval is holding, widening or closing. Zero when there
+	// were too few intervals to measure.
+	Cadence Cadence
+
 	// Signatures are the distinct things the finding's records say, ranked most
 	// informative first. This is the "why" the pattern alone cannot give: 222
 	// readiness failures reduce to three signatures, and the first of them is
@@ -283,6 +288,7 @@ func Build(f link.Forest, captureEnd time.Time) Chart {
 			Pattern:    c.patternOf(i),
 			Confidence: c.confidenceOf(i),
 			Because:    c.suppressionOf(i),
+			Cadence:    cadenceOf(f.Findings[i]),
 			Signatures: signaturesOf(f.Findings[i]),
 		}
 	}

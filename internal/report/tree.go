@@ -3,6 +3,7 @@ package report
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -251,7 +252,12 @@ func (r *Renderer) writeNode(b *strings.Builder, c diagnose.Chart, in diagnose.I
 	inner := pad + strings.Repeat(" ", lipgloss.Width(stem)) + "   "
 
 	if d.Pattern != diagnose.PatternNone {
-		fmt.Fprintln(b, inner+r.paint(r.style.pattern, d.Pattern.String()))
+		line := d.Pattern.String()
+		if c := rhythm(d.Cadence, f); c != "" {
+			line += "  ·  " + c
+		}
+
+		fmt.Fprintln(b, inner+r.paint(r.style.pattern, line))
 	}
 
 	r.writeSignatures(b, inner, d, f.Count)
@@ -314,7 +320,60 @@ func (r *Renderer) writeSignatures(b *strings.Builder, inner string, d diagnose.
 
 			fmt.Fprintln(b, inner+prefix+r.paint(style, l)+count)
 		}
+
+		// What this particular body proves, where the finding's own meaning is
+		// too coarse to say. Stated as evidence, not as instructions.
+		if s.Means == "" {
+			continue
+		}
+
+		for j, l := range wrapText("→ "+s.Means, frame-lipgloss.Width(inner)-8) {
+			if j > 0 {
+				l = "  " + l
+			}
+
+			fmt.Fprintln(b, inner+"  "+r.paint(r.style.evidence, l))
+		}
 	}
+}
+
+// rhythm renders a finding's cadence, or empty where too few intervals existed.
+//
+// The trend is named only when it is not steady: "steady" beside a probe that
+// fires on a fixed period says nothing, where "easing" beside a retry loop says
+// the gaps will keep widening until the fault is fixed.
+func rhythm(c diagnose.Cadence, f group.Finding) string {
+	if !c.Known() {
+		return ""
+	}
+
+	out := "every ~" + roughly(c.Median)
+	if u := c.Unit(f); u != "" {
+		out += " " + u
+	}
+
+	switch c.Trend {
+	case diagnose.TrendEasing:
+		out += ", easing " + roughly(c.Early) + " → " + roughly(c.Late)
+
+	case diagnose.TrendTightening:
+		out += ", tightening " + roughly(c.Early) + " → " + roughly(c.Late)
+	}
+
+	return out
+}
+
+// roughly renders a duration at the precision it was actually measured to.
+//
+// Tenths below a minute, whole seconds above. "4m11.2s" implies a
+// measurement two decimal places finer than a median over 22 samples supports,
+// and precision nobody has is precision nobody should print.
+func roughly(d time.Duration) string {
+	if d < time.Minute {
+		return d.Round(100 * time.Millisecond).String()
+	}
+
+	return d.Round(time.Second).String()
 }
 
 // writeCollapsed writes children that share an explanation: the explanation

@@ -51,6 +51,101 @@ type Signature struct {
 	// signatures restate the reason -- "Error: ImagePullBackOff" beside a
 	// finding whose reason is already Failed -- and are rendered as such.
 	Specific bool
+
+	// Means is what this particular body proves, where the finding's own
+	// meaning is too coarse to say. Empty when we have nothing to add.
+	//
+	// It states what the evidence establishes and stops there. The engineer
+	// debugs; this tool sharpens the lens they debug through, and a reading that
+	// slid into instructions would be guessing at a system it cannot see.
+	Means string
+}
+
+// reading is one row of the signature interpretation table.
+//
+// The taxonomy interprets reasons; this interprets signature shapes. It exists
+// because one reason can carry situations that mean opposite things: an
+// Unhealthy body reading "connection refused" proves nothing was listening,
+// while one reading "statuscode: 404" proves the server was listening and
+// answering. The finding-level meaning cannot be right for both.
+//
+// Splitting the taxonomy rule instead would have been the obvious move -- Failed
+// already does it -- but Rule is in the coalescing key, so it would fragment
+// 04-test-a's one broken deployment into three findings.
+//
+// First match wins, so narrower rows come first. A signature matching no row
+// carries no reading, which is the same abstention the classifier makes for a
+// reason it cannot read.
+type reading struct {
+	name  string
+	all   []string // every substring must be present
+	means string
+}
+
+// readings covers only shapes the captures actually contain.
+//
+// No row for HTTP 500 or 503, for "no route to host", or for TCP-probe
+// failures: none appears in any capture, and a body matcher nobody has ever
+// seen fire is a guess wearing a rule's clothes. OOMKilling already proved that
+// trap -- the brief's own example body text would never have matched a real
+// record.
+var readings = []reading{
+	// The three readiness outcomes in 04-test-a, which interleave for the whole
+	// 7m49s rather than resolving into phases.
+	{
+		name:  "probe/http-status",
+		all:   []string{"probe failed", "statuscode:"},
+		means: "the server answered the probe -- with a status saying this path is not what it wants",
+	},
+	{
+		name:  "probe/refused",
+		all:   []string{"probe failed", "connection refused"},
+		means: "nothing was listening on that port when the probe fired",
+	},
+	{
+		name:  "probe/timeout",
+		all:   []string{"probe failed", "deadline exceeded"},
+		means: "the connection was not refused, and no answer arrived inside the probe's timeout",
+	},
+
+	// 06-test-c's scheduler bodies name which resource ran out, and the two are
+	// not the same problem to have.
+	{
+		name:  "scheduling/cpu-and-memory",
+		all:   []string{"Insufficient cpu", "Insufficient memory"},
+		means: "no node had enough of either CPU or memory for these pods",
+	},
+	{
+		name:  "scheduling/cpu",
+		all:   []string{"Insufficient cpu"},
+		means: "no node had enough spare CPU for these pods",
+	},
+	{
+		name:  "scheduling/memory",
+		all:   []string{"Insufficient memory"},
+		means: "no node had enough spare memory for these pods",
+	},
+}
+
+// readingOf returns what a signature's text proves, or empty.
+func readingOf(text string) string {
+	for _, r := range readings {
+		matched := true
+
+		for _, token := range r.all {
+			if !strings.Contains(text, token) {
+				matched = false
+
+				break
+			}
+		}
+
+		if matched {
+			return r.means
+		}
+	}
+
+	return ""
 }
 
 // signaturesOf reduces a finding's records to their distinct normalised bodies,
@@ -76,7 +171,12 @@ func signaturesOf(f group.Finding) []Signature {
 			continue
 		}
 
-		out = append(out, Signature{Text: text, Count: n, Specific: concreteNoun.MatchString(text)})
+		out = append(out, Signature{
+			Text:     text,
+			Count:    n,
+			Specific: concreteNoun.MatchString(text),
+			Means:    readingOf(text),
+		})
 	}
 
 	// Text is the final tiebreak so the order is total: Go randomises map

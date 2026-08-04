@@ -84,6 +84,7 @@
           "specific": true
         }
       ],
+      "cadence": null,
       "edge": null,
       "records": [
         {
@@ -157,6 +158,7 @@
           "specific": false
         }
       ],
+      "cadence": null,
       "edge": {
         "parent": 0,
         "kind": "caused",
@@ -455,6 +457,7 @@
           "specific": true
         }
       ],
+      "cadence": null,
       "edge": {
         "parent": 1,
         "kind": "caused",

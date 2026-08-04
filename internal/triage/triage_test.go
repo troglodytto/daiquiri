@@ -712,3 +712,107 @@ func TestEveryReportedFindingCarriesASignature(t *testing.T) {
 		})
 	}
 }
+
+// TestCadenceMatchesTheFixtures pins the rhythm of every repeating finding.
+//
+// These are per-object medians, and the distinction matters: 04's finding-wide
+// interval is 1.4s because five pods are probed independently, where 10.5s is
+// the probe period configured on the deployment.
+func TestCadenceMatchesTheFixtures(t *testing.T) {
+	tests := []struct {
+		fixture, workload, reason string
+		objects, samples          int
+		median                    time.Duration
+		trend                     string
+	}{
+		// The sentence that makes a memory leak legible: one kill per pod every
+		// four minutes. Reported steady -- the means do contract, 4m43s to
+		// 3m43s, and that is below the threshold this corpus supports.
+		{"02-memory-leak.jsonl", "recommendation-service", "OOMKilling", 4, 22, 251240 * time.Millisecond, "steady"},
+		{"02-memory-leak.jsonl", "recommendation-service", "BackOff", 4, 87, 10800 * time.Millisecond, "steady"},
+
+		// Kubernetes' exponential backoff, unmistakable at 5x and 11x.
+		{"03-image-pull-failure.jsonl", "payment-service", "Failed", 3, 21, 40538 * time.Millisecond, "easing"},
+		{"03-image-pull-failure.jsonl", "payment-service", "BackOff", 3, 15, 80428 * time.Millisecond, "easing"},
+
+		// Fixed periods: a readiness probe and the scheduler's retry interval.
+		{"04-test-a.jsonl", "checkout-service", "Unhealthy", 5, 217, 10472 * time.Millisecond, "steady"},
+		{"06-test-c.jsonl", "data-pipeline", "FailedScheduling", 6, 171, 20372 * time.Millisecond, "steady"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fixture+"/"+tt.reason, func(t *testing.T) {
+			c := run(t, tt.fixture).Chart
+
+			for i := range c.Findings {
+				if c.Findings[i].Workload != tt.workload || c.Findings[i].Reason != tt.reason {
+					continue
+				}
+
+				cd := c.Diagnoses[i].Cadence
+				require.True(t, cd.Known())
+
+				assert.Equal(t, tt.objects, cd.Objects)
+				assert.Equal(t, tt.samples, cd.Samples)
+				assert.Equal(t, tt.trend, cd.Trend.String())
+				assert.InDelta(t, tt.median, cd.Median, float64(50*time.Millisecond),
+					"median cadence %s", cd.Median)
+
+				return
+			}
+
+			t.Fatalf("no finding %s/%s", tt.workload, tt.reason)
+		})
+	}
+}
+
+// TestBackgroundFindingsHaveNoCadence: three occurrences over twelve seconds is
+// not a rhythm, and reporting one would dress noise as a measurement.
+func TestBackgroundFindingsHaveNoCadence(t *testing.T) {
+	c := run(t, "01-healthy.jsonl").Chart
+
+	for i := range c.Findings {
+		assert.False(t, c.Diagnoses[i].Cadence.Known(),
+			"%s has too few intervals to measure", c.Findings[i].Reason)
+	}
+}
+
+// TestProbeSignaturesCarryDistinctReadings covers D-57 end to end. 04's three
+// probe outcomes prove three different things, and the finding-level meaning
+// cannot be right for all of them.
+func TestProbeSignaturesCarryDistinctReadings(t *testing.T) {
+	c := run(t, "04-test-a.jsonl").Chart
+
+	var got map[string]string
+
+	for i := range c.Findings {
+		if c.Findings[i].Workload != "checkout-service" || c.Findings[i].Reason != "Unhealthy" {
+			continue
+		}
+
+		got = map[string]string{}
+		for _, s := range c.Diagnoses[i].Signatures {
+			got[s.Text] = s.Means
+		}
+	}
+
+	require.Len(t, got, 3, "404, connection refused, and timeout")
+
+	var status, refused, timeout string
+	for text, means := range got {
+		switch {
+		case strings.Contains(text, "statuscode"):
+			status = means
+		case strings.Contains(text, "connection refused"):
+			refused = means
+		case strings.Contains(text, "deadline exceeded"):
+			timeout = means
+		}
+	}
+
+	assert.Contains(t, status, "the server answered")
+	assert.Contains(t, refused, "nothing was listening")
+	assert.Contains(t, timeout, "not refused")
+
+	assert.NotEqual(t, status, refused, "these prove opposite things about the process")
+}

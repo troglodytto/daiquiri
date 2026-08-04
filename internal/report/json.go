@@ -137,6 +137,9 @@ type finding struct {
 
 	Signatures []signature `json:"signatures"`
 
+	// Cadence is null where too few intervals existed to measure a rhythm.
+	Cadence *cadence `json:"cadence"`
+
 	// Edge is null for a root.
 	Edge *edge `json:"edge"`
 
@@ -227,6 +230,30 @@ type signature struct {
 	// amount, a status code -- as opposed to one restating the reason. Ranking
 	// puts specific first, then frequency.
 	Specific bool `json:"specific"`
+
+	// Means is what this body proves, where the finding's own meaning is too
+	// coarse to say. Omitted when there is nothing to add.
+	Means string `json:"means,omitempty"`
+}
+
+// cadence is the finding's rhythm.
+//
+// Every measured value is published, not just the classification: trend is a
+// threshold applied to early and late, and a reader who disagrees with the
+// threshold can apply their own. 02-memory-leak reads "steady" at a ratio of
+// 0.79, and both numbers are here so that call can be checked.
+type cadence struct {
+	Samples int `json:"intervals_measured"`
+	Objects int `json:"objects"`
+
+	Median   string `json:"median"`
+	Shortest string `json:"shortest"`
+	Longest  string `json:"longest"`
+
+	Early string `json:"early_mean"`
+	Late  string `json:"late_mean"`
+
+	Trend string `json:"trend"`
 }
 
 type edge struct {
@@ -386,7 +413,22 @@ func findingOf(c diagnose.Chart, i int) finding {
 	}
 
 	for _, s := range d.Signatures {
-		out.Signatures = append(out.Signatures, signature{Text: s.Text, Count: s.Count, Specific: s.Specific})
+		out.Signatures = append(out.Signatures, signature{
+			Text: s.Text, Count: s.Count, Specific: s.Specific, Means: s.Means,
+		})
+	}
+
+	if cd := d.Cadence; cd.Known() {
+		out.Cadence = &cadence{
+			Samples:  cd.Samples,
+			Objects:  cd.Objects,
+			Median:   cd.Median.Round(time.Millisecond).String(),
+			Shortest: cd.Shortest.Round(time.Millisecond).String(),
+			Longest:  cd.Longest.Round(time.Millisecond).String(),
+			Early:    cd.Early.Round(time.Millisecond).String(),
+			Late:     cd.Late.Round(time.Millisecond).String(),
+			Trend:    cd.Trend.String(),
+		}
 	}
 
 	if !c.IsRoot(i) {

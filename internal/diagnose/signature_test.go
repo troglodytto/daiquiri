@@ -167,3 +167,67 @@ func TestFindingWithNoRecordsHasNoSignatures(t *testing.T) {
 	_, ok := diagnose.Diagnosis{}.Leading()
 	assert.False(t, ok)
 }
+
+// TestSignatureReadings covers D-57: one reason carrying situations that mean
+// opposite things, where the finding-level meaning cannot be right for both.
+func TestSignatureReadings(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			"a 404 proves the server answered",
+			"Readiness probe failed: HTTP probe failed with statuscode: 404",
+			"the server answered the probe -- with a status saying this path is not what it wants",
+		},
+		{
+			"refused proves nothing was listening",
+			`Readiness probe failed: Get "http://10.0.0.1:8080/healthz": dial tcp 10.0.0.1:8080: connect: connection refused`,
+			"nothing was listening on that port when the probe fired",
+		},
+		{
+			"a timeout proves neither",
+			`Readiness probe failed: Get "http://10.0.0.1:8080/healthz": context deadline exceeded`,
+			"the connection was not refused, and no answer arrived inside the probe's timeout",
+		},
+		{
+			"the scheduler names which resource ran out",
+			"0/6 nodes are available: 6 Insufficient cpu.",
+			"no node had enough spare CPU for these pods",
+		},
+		{
+			"and says so when it is both",
+			"0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory.",
+			"no node had enough of either CPU or memory for these pods",
+		},
+
+		// Silence, not a plausible-sounding guess. The rule-level meaning
+		// already covers these, and a body matcher nobody has seen fire is a
+		// guess wearing a rule's clothes.
+		{"an image pull carries no extra reading", `Failed to pull image "registry/x:v1": not found`, ""},
+		{"nor does an OOM kill", "Container x in pod <pod> exceeded memory limit (512Mi)", ""},
+		{"nor an HTTP 503, which no capture contains", "Readiness probe failed: HTTP probe failed with statuscode: 503", "the server answered the probe -- with a status saying this path is not what it wants"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := signatures(t, withBodies(issue("svc", "unhealthy/readiness", 0, 1, 0), tt.body))
+
+			require.Len(t, got, 1)
+			assert.Equal(t, tt.want, got[0].Means)
+		})
+	}
+}
+
+// TestReadingsAreOrderedNarrowestFirst: "Insufficient cpu" is a substring of the
+// both-resources body, so a table ordered the other way would report a CPU
+// shortage on a cluster short of memory too.
+func TestReadingsAreOrderedNarrowestFirst(t *testing.T) {
+	both := signatures(t, withBodies(issue("svc", "failed-scheduling", 0, 1, 0),
+		"0/6 nodes are available: 3 Insufficient cpu, 3 Insufficient memory."))
+
+	require.Len(t, both, 1)
+	assert.Contains(t, both[0].Means, "either CPU or memory")
+	assert.NotContains(t, both[0].Means, "spare CPU for these pods")
+}
