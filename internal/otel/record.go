@@ -84,13 +84,27 @@ func (r *record) toEvent() (event.Event, error) {
 		count = defaultCount
 	}
 
+	// A Node-kind event names its node in k8s.object.name and carries no
+	// k8s.node.name: that field is populated by the kubelet that emitted the
+	// event, and a node condition comes from the node controller instead. So the
+	// one record shape that identifies a node arrives with an empty Node.
+	//
+	// Normalising here rather than at each use keeps every downstream "same
+	// node" rule a plain string comparison. Without it those rules silently fail
+	// to match the very event they exist to find -- the anchor for the whole
+	// node-pressure diagnosis in 05-test-b.
+	node := r.Resource.Node
+	if node == "" && r.Resource.Kind == event.KindNode {
+		node = r.Resource.Name
+	}
+
 	return event.Event{
 		Timestamp: ts,
 		Reason:    r.Attributes.Reason,
 		Body:      r.Body,
 		Namespace: r.Attributes.Namespace,
 		Cluster:   r.Resource.Cluster,
-		Node:      r.Resource.Node,
+		Node:      node,
 		Object: event.Object{
 			Kind: r.Resource.Kind,
 			Name: r.Resource.Name,

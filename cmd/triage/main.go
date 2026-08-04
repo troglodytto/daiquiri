@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/troglodytto/daiquiri/internal/classify"
 	"github.com/troglodytto/daiquiri/internal/triage"
@@ -53,7 +54,29 @@ func run(args []string, stderr io.Writer) int {
 		return exitFail
 	}
 
-	triage.Group(res.Issues)
+	// Provisional rendering until the report stage lands: the header plus one
+	// line per finding, in timeline order. Enough to check grouping against the
+	// captures by eye; not the prioritised output the brief asks for.
+	fmt.Println(res.Summarise())
+
+	for _, f := range res.Findings {
+		nodes := "-"
+		if len(f.Nodes) > 0 {
+			nodes = strings.Join(f.Nodes, ",")
+		}
+
+		fmt.Printf(
+			"  %s  %-8s %-20s %-11s %-19s n=%-4d pods=%-2d nodes=%s\n",
+			f.FirstSeen.UTC().Format("15:04:05.000"),
+			f.Severity,
+			f.Workload,
+			f.Namespace,
+			f.Reason,
+			f.Count,
+			len(f.Pods),
+			nodes,
+		)
+	}
 
 	return exitOK
 }

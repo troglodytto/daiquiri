@@ -21,6 +21,7 @@ only by taste says so.
 ## Scope and process
 
 ### D-01 — Rebuild by hand; adopt only the standards document from the prior attempt
+
 **Status:** Accepted
 
 `~/Projects/daiquiri-ai` is an earlier attempt at this challenge, built largely
@@ -41,13 +42,14 @@ layout. It also refers to an `AGENTS.md` that does not exist here.
 ---
 
 ### D-02 — Design is argued in the open before code is written
+
 **Status:** Accepted
 
 Structure, data model and thresholds are settled in writing, against fixture
 evidence, before implementation. This ledger and `docs/hld.md` are that record.
 
 **Why:** three separate decisions in this ledger (D-11, D-14, D-21) were
-*reversed by looking at the actual data*. Each would have been a rewrite if it
+_reversed by looking at the actual data_. Each would have been a rewrite if it
 had been discovered after implementation instead of before.
 
 ---
@@ -55,33 +57,35 @@ had been discovered after implementation instead of before.
 ## The product
 
 ### D-03 — The deliverable is a causal trail, not a list of findings
+
 **Status:** Accepted
 
 North star: an engineer paged at 3am pulls on the thread of the alert and walks
 back to where the failure started.
 
 **Why:** the brief allocates 35% to the Analysis Report and explicitly warns
-that *"a summary that lists counts without an interpretation is half the work"*,
-and that *"seemingly unconnected findings are sometimes side effects of the same
-underlying issue."* A flat finding list scores badly on both.
+that _"a summary that lists counts without an interpretation is half the work"_,
+and that _"seemingly unconnected findings are sometimes side effects of the same
+underlying issue."_ A flat finding list scores badly on both.
 
 **Evidence:** all four non-trivial fixtures resolve to a 2–3 hop trail.
 
-| Fixture | Symptom | Origin |
-|---|---|---|
-| 02 | `BackOff` ×91 on recommendation-service | `OOMKilling` on the same pods, seconds earlier — trail runs off the front of the capture |
-| 03 | `Failed` ×24 / `BackOff` ×18 on payment-service | `ScalingReplicaSet payment-service` @ 10:17:59.977, 4s before |
-| 04 | `Unhealthy` ×222 on checkout-service | `ScalingReplicaSet checkout-service → 5` @ 10:21:59.977, 7s before, **zero** symptoms prior |
-| 05 | `Evicted` ×10 across 6 workloads / 3 namespaces | `NodeHasDiskPressure node-4` @ 10:15:00.000, 15s before |
-| 06 | `FailedScheduling` ×177 on data-pipeline | `ScalingReplicaSet data-pipeline → 12` @ 10:19:59.977, 5s before |
+| Fixture | Symptom                                         | Origin                                                                                      |
+| ------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 02      | `BackOff` ×91 on recommendation-service         | `OOMKilling` on the same pods, seconds earlier — trail runs off the front of the capture    |
+| 03      | `Failed` ×24 / `BackOff` ×18 on payment-service | `ScalingReplicaSet payment-service` @ 10:17:59.977, 4s before                               |
+| 04      | `Unhealthy` ×222 on checkout-service            | `ScalingReplicaSet checkout-service → 5` @ 10:21:59.977, 7s before, **zero** symptoms prior |
+| 05      | `Evicted` ×10 across 6 workloads / 3 namespaces | `NodeHasDiskPressure node-4` @ 10:15:00.000, 15s before                                     |
+| 06      | `FailedScheduling` ×177 on data-pipeline        | `ScalingReplicaSet data-pipeline → 12` @ 10:19:59.977, 5s before                            |
 
 ---
 
 ### D-04 — Prioritised list at the top, trail underneath; each headline is its origin
+
 **Status:** Accepted
 
 The brief requires a severity-prioritised summary. The north star wants
-chronology. Both are satisfied by ordering *incidents* by severity while making
+chronology. Both are satisfied by ordering _incidents_ by severity while making
 each incident's headline the **origin**, not the symptom.
 
 **Why:** the first line a paged engineer reads is then already the root cause.
@@ -91,6 +95,7 @@ each incident's headline the **origin**, not the symptom.
 ## Classification (Step 1)
 
 ### D-05 — Noise is retained, not counted and dropped
+
 **Status:** Accepted — **reverses the current implementation**
 
 `internal/triage` presently does `res.Noise++` and discards the record. Noise
@@ -110,20 +115,21 @@ tool can make.
 ```
 
 `Started → Killing` is **4m41s**, then **4m12s** on the following cycle. That is
-the memory leak's fill rate, and the fact that it is *contracting*. Both
+the memory leak's fill rate, and the fact that it is _contracting_. Both
 endpoints are noise records. Discard them and the strongest sentence in the
 analysis report becomes unavailable.
 
 **Cost:** ~20,000 events held in memory ≈ 1.6 MB, against a 16 MB input file.
 
 **Note:** `internal/classify` §Category already documents this intent —
-*"the filter categorizes rather than deletes, so that a record can be excluded
-from the report while still being available to correlation"* — and the pipeline
+_"the filter categorizes rather than deletes, so that a record can be excluded
+from the report while still being available to correlation"_ — and the pipeline
 does not honour it. The doc comment was right; the code was not.
 
 ---
 
 ### D-06 — Noise is retained but never narrated
+
 **Status:** Accepted
 
 Every record is kept. Only issues, markers and unknowns create a finding.
@@ -136,6 +142,7 @@ capture and drowns the report.
 ---
 
 ### D-07 — `Workload()` derives the owner; kind-dispatched, conservative fallback
+
 **Status:** Accepted
 
 A method on `event.Object`. Strips the ReplicaSet hash and pod suffix for
@@ -144,12 +151,12 @@ else — including anything unmatched.
 
 **Evidence** — measured across all six fixtures:
 
-| Kind | Records | Shape | Match |
-|---|---|---|---|
-| Pod | 94,686 | `<workload>-<9 hex>-<5 alnum>` | 100% |
-| ReplicaSet | 25,311 | `<workload>-<9 hex>` | 100% |
-| Deployment | 3 | bare | n/a |
-| Node | 1 | bare | n/a |
+| Kind       | Records | Shape                          | Match |
+| ---------- | ------- | ------------------------------ | ----- |
+| Pod        | 94,686  | `<workload>-<9 hex>-<5 alnum>` | 100%  |
+| ReplicaSet | 25,311  | `<workload>-<9 hex>`           | 100%  |
+| Deployment | 3       | bare                           | n/a   |
+| Node       | 1       | bare                           | n/a   |
 
 Twelve distinct workloads, all `[a-z-]+`. **No workload name itself ends in a
 hash-shaped segment**, so a single strip is unambiguous. No StatefulSet
@@ -170,6 +177,7 @@ here to optimise.
 ---
 
 ### D-08 — Node identity is normalised at decode
+
 **Status:** Accepted
 
 ```go
@@ -186,6 +194,7 @@ Step 3 silently fails to match the very event it exists to find.
 ---
 
 ### D-09 — Unrecognised `Normal` events get their own category
+
 **Status:** Accepted
 
 The classifier's fallback currently routes unrecognised `Normal` events to
@@ -194,9 +203,9 @@ reported, demoted, at the foot of the output. Unrecognised **Warning** keeps its
 present behaviour — surfaced as an issue.
 
 **Why:** `06-test-c.jsonl` contains a deliberately planted record with reason
-`LALALALA` whose body reads *"In case there are some new events that we haven't
+`LALALALA` whose body reads _"In case there are some new events that we haven't
 really recognized and handled, we'd much rather surface it, instead of burying
-it"*. The current fallback buries it.
+it"_. The current fallback buries it.
 
 **Why a category and not a special case:** routing unknowns through normal
 grouping means 2,000 unknown records collapse to one finding per reason rather
@@ -205,6 +214,7 @@ than 2,000 lines.
 ---
 
 ### D-10 — Occurrence count is `max(Count)` per distinct `EventUID`, summed
+
 **Status:** Accepted
 
 **Evidence:** `k8s.event.count` is `1` for **all 120,001 records** across the six
@@ -212,7 +222,7 @@ fixtures, and event UIDs are unique. So `Count == len(members)` in every test
 available.
 
 **Why implement the harder rule anyway:** the brief states the tool must handle
-*"repeated logs as the API server's `count` increments"*. That path cannot be
+_"repeated logs as the API server's `count` increments"_. That path cannot be
 tested against this corpus and must be covered by a synthetic test. Naïve
 `+= Count` double-counts under a count-incrementing pipeline.
 
@@ -221,6 +231,9 @@ tested against this corpus and must be covered by a synthetic test. Naïve
 ## Grouping (Step 2)
 
 ### D-11 — Group key is `(Kind, Workload, Namespace, Reason)`
+
+**Status:** Accepted, extended by D-28 which adds `Rule`
+
 **Status:** Accepted
 
 **Why `Workload` rather than `Object.Name`:** `k8s.object.name` for a Pod is the
@@ -230,35 +243,36 @@ the literal name that is 5 findings, keyed on workload it is 1. The brief's
 
 **Resulting finding counts** — the acceptance data for Step 2:
 
-| Fixture | Findings |
-|---|---|
-| 01-healthy | 3 |
-| 02-memory-leak | 5 |
-| 03-image-pull | 6 |
-| 04-test-a | 5 |
-| 05-test-b | 9 |
-| 06-test-c | 6 |
+| Fixture        | Findings |
+| -------------- | -------- |
+| 01-healthy     | 3        |
+| 02-memory-leak | 5        |
+| 03-image-pull  | 6        |
+| 04-test-a      | 5        |
+| 05-test-b      | 10       |
+| 06-test-c      | 6        |
 
 ---
 
 ### D-12 — `Node` is **not** in the group key
+
 **Status:** Accepted — **reverses an earlier decision in this same design pass**
 
 Originally accepted on the strength of 05-test-b, where `data-pipeline` is
 evicted on node-2 at 10:02:32 (background) and on node-4 between 10:15:25 and
 10:19:56 (the incident). Without `Node` in the key those merge into one finding
-whose `FirstSeen` is 10:02:32 — *before* the `NodeHasDiskPressure` at 10:15:00
+whose `FirstSeen` is 10:02:32 — _before_ the `NodeHasDiskPressure` at 10:15:00
 that caused three of them, so the causal link would be correctly rejected and
 the diagnosis destroyed.
 
 **Reversed** once the same key was applied to the other five fixtures:
 
-| Fixture | Findings without `Node` | With `Node` |
-|---|---|---|
+| Fixture                   | Findings without `Node`               | With `Node`                         |
+| ------------------------- | ------------------------------------- | ----------------------------------- |
 | 02 recommendation-service | 2 (`OOMKilling` n=26, `BackOff` n=91) | **8** — 4 pods on 4 different nodes |
-| 03 payment-service | 2 (`Failed` n=24, `BackOff` n=18) | **6** — 3 nodes |
-| 04 checkout-service | 1 (`Unhealthy` n=222) | **3** — 3 nodes |
-| 05 data-pipeline | 1 impure (n=4, 2 nodes) | 2 clean |
+| 03 payment-service        | 2 (`Failed` n=24, `BackOff` n=18)     | **6** — 3 nodes                     |
+| 04 checkout-service       | 1 (`Unhealthy` n=222)                 | **3** — 3 nodes                     |
+| 05 data-pipeline          | 1 impure (n=4, 2 nodes)               | 2 clean                             |
 
 It fixes one fixture and fragments four. A memory leak is a property of the
 workload; the node it lands on is incidental.
@@ -268,6 +282,7 @@ workload; the node it lands on is incidental.
 ---
 
 ### D-13 — Findings sort on a **total** order
+
 **Status:** Accepted
 
 Sort key: `FirstSeen`, then `Kind`, `Workload`, `Namespace`, `Reason`.
@@ -275,11 +290,12 @@ Sort key: `FirstSeen`, then `Kind`, `Workload`, `Namespace`, `Reason`.
 **Why:** Go randomises map iteration order, and 05 contains several evictions
 within the same second. Sorting on `FirstSeen` alone leaves ties resolved by
 map order, so two runs on the same input produce different output and golden
-tests fail *intermittently* — the worst possible way to find this.
+tests fail _intermittently_ — the worst possible way to find this.
 
 ---
 
 ### D-14 — Markers and unknowns group through the identical path
+
 **Status:** Accepted
 
 `ScalingReplicaSet` → `Kind=Deployment`, `Workload=checkout-service` → one
@@ -291,6 +307,7 @@ candidates in Step 3 for free. A point event is a span of zero duration.
 ---
 
 ### D-15 — Grouping is conservative; linking does the joining
+
 **Status:** Accepted
 
 Never merge across a dimension that cannot be shown irrelevant. Merging
@@ -304,6 +321,7 @@ there. No grouping key can tell those apart — only the causal rules can.
 ---
 
 ### D-16 — Grouping is non-windowed; analysis is windowed
+
 **Status:** Accepted
 
 One finding per key spanning the whole capture, with **every** occurrence
@@ -319,6 +337,7 @@ indistinguishable from a 27-minute crash loop. 01-healthy's `Unhealthy` finding
 ## Causality (Step 3)
 
 ### D-17 — A trail is a filtered, time-sorted slice of the raw records
+
 **Status:** Accepted — **reverses D-18 through D-20 below**
 
 ```go
@@ -332,14 +351,14 @@ computed on demand, stored nowhere.
 
 **Why:** after classification the working set is ≤227 records, not 20,000.
 
-| Fixture | Records | Issue records |
-|---|---|---|
-| 01-healthy | 20,000 | 5 |
-| 02 | 20,000 | 122 |
-| 03 | 20,000 | 47 |
-| 04 | 20,000 | 227 |
-| 05 | 20,000 | 16 |
-| 06 | 20,001 | 182 |
+| Fixture    | Records | Issue records |
+| ---------- | ------- | ------------- |
+| 01-healthy | 20,000  | 5             |
+| 02         | 20,000  | 122           |
+| 03         | 20,000  | 47            |
+| 04         | 20,000  | 227           |
+| 05         | 20,000  | 16            |
+| 06         | 20,001  | 182           |
 
 At n=227 a linear scan is free. Everything in D-18…D-20 was solving a
 performance problem that does not exist.
@@ -347,6 +366,7 @@ performance problem that does not exist.
 ---
 
 ### D-18 — Precomputed parent forest over a time-sorted entry array
+
 **Status:** Parked (superseded by D-17)
 
 Every entry carries `Parent int` into a slice sorted by `FirstSeen`, `-1`
@@ -361,6 +381,7 @@ cross-finding root grouping in the report, this is the shape it takes.
 ---
 
 ### D-19 — Forest, not a general DAG: at most one parent
+
 **Status:** Accepted (as a rule; the mechanism is D-17)
 
 Real-world causality is a DAG — several causes contribute to one effect. The
@@ -389,6 +410,7 @@ the difference between a decision and a guess.
 ---
 
 ### D-20 — Two-arena physical layout (index ranges into flat occurrence arrays)
+
 **Status:** Rejected (superseded by D-17)
 
 Entries holding `lo, hi int` windows into a flat `[]Occurrence` sorted by
@@ -402,11 +424,12 @@ of conceptual weight. Plain `[]Event` and `[]Finding` with linear scans.
 ---
 
 ### D-21 — Time is a veto, never a proposal
+
 **Status:** Accepted
 
 No causal rule may say "these are close in time, therefore related." Every rule
 requires a concrete shared dimension first — same pod, same node, same workload
-— and time is applied afterwards only to *reject* matches that are too far
+— and time is applied afterwards only to _reject_ matches that are too far
 apart. Time can remove a candidate edge; it can never create one.
 
 **Evidence:** 04-test-a contains 3 baseline `Unhealthy` events on `data-pipeline`
@@ -417,6 +440,7 @@ incident where there are two.
 ---
 
 ### D-22 — Rule priority is the outer loop; time proximity is the inner loop
+
 **Status:** Accepted
 
 ```go
@@ -427,34 +451,76 @@ for _, r := range rules {          // strongest relationship first
 }
 ```
 
-**Why:** transposed, "first match" silently becomes *nearest candidate matching
-any rule* instead of *strongest rule matching any candidate*. In 05 that would
+**Why:** transposed, "first match" silently becomes _nearest candidate matching
+any rule_ instead of _strongest rule matching any candidate_. In 05 that would
 let a weak same-workload link to the background node-2 eviction win over the
 node-condition link that is actually correct.
 
 ---
 
 ### D-23 — 05's impure eviction finding is disclosed, not split
-**Status:** Accepted
+
+**Status:** Reversed by D-28
 
 `data-pipeline / data / Evicted` in 05 has n=4 across two nodes: one background
 eviction on node-2 at 10:02:32 and three incident evictions on node-4 between
-10:15:25 and 10:19:56.
+10:15:25 and 10:19:56. This decision kept the finding merged and disclosed the
+split in the evidence line — _"3 of 4 evictions on node-4, 25s–4m56s after
+NodeHasDiskPressure"_ — on the reasoning that disclosing impurity beats
+inventing a threshold to hide it.
 
-The finding stays merged. The causal rule evaluates against **member
-occurrences**, not the finding's aggregate `FirstSeen`, and the evidence line
-states the split: *"3 of 4 evictions on node-4, 25s–4m56s after
-NodeHasDiskPressure."*
+**Why it fell:** it assumed the two evictions were the same failure mode
+observed in two places. Reading the bodies showed they are not.
 
-**Alternative rejected — episode splitting on a temporal gap.** Splitting a
-finding wherever the inter-occurrence gap exceeds some multiple of the median
-would separate the two cleanly. It requires a threshold nothing in the data
-justifies, and it would fire unpredictably on sparse findings elsewhere.
-Disclosing impurity beats inventing a constant to hide it.
+| Time     | Node   | Body                                                     |
+| -------- | ------ | -------------------------------------------------------- |
+| 10:02:32 | node-2 | `The node was low on resource: memory. Container pipe...` |
+| 10:15:25 | node-4 | `The node had condition: [DiskPressure].`                 |
+
+The taxonomy already separates these — `evicted/memory-pressure` and
+`evicted/disk-pressure` are distinct rules — so no new threshold or heuristic is
+needed to tell them apart. The information was there and the key was throwing it
+away.
+
+**Alternative still rejected — episode splitting on a temporal gap.** Splitting
+wherever the inter-occurrence gap exceeds some multiple of the median would also
+separate these two, but it requires a constant nothing in the data justifies and
+would fire unpredictably on sparse findings elsewhere.
+
+---
+
+### D-28 — The fired taxonomy rule is part of the group key
+
+**Status:** Accepted — supersedes D-23
+
+Final key: **`(Kind, Workload, Namespace, Reason, Rule)`**, where `Rule` is a
+short stable identifier for the taxonomy row that classified the record.
+
+**Why:** one reason can carry two failure modes. Measured across the corpus,
+`Evicted` splits into disk-pressure and memory-pressure on the same workload
+(`data-pipeline`: 3 and 5; `batch-reporter`: 1 and 1). Two different failure
+modes are not one fact about a workload, and merging them drags the incident
+finding's `FirstSeen` thirteen minutes earlier than the event that explains it —
+at which point the cause postdates its effect and the causal link is correctly
+rejected.
+
+**Why `Rule` and not `Cause`:** `Cause` is display text written for a human
+reader. Keying on it would mean rewording a sentence silently changes how
+records coalesce. `Rule` is an identifier whose only job is identity.
+
+**Cost — verified, none.** Every other group in the corpus matches a single
+rule, so nothing else fragments: 04's 222 `Unhealthy` are all readiness probes,
+03's 24 `Failed` are all image-pull, 02's 91 `BackOff` are all crash-loop.
+The only fixture whose count changes is 05, from 9 findings to 10.
+
+**This is what D-12 promised.** The node was removed from the key on the grounds
+that a real fix existed for 05; this is it, and unlike the node it costs nothing
+elsewhere.
 
 ---
 
 ### D-24 — Union-find: skeleton adopted, algorithm rejected
+
 **Status:** Rejected
 
 Union-find's physical form — `parent []int` with `find()` walking to a root — is
@@ -463,10 +529,10 @@ same set?") is exactly 05's question. Both of its optimisations are nonetheless
 disqualifying:
 
 - **Path compression** repoints each node directly at its root. The intermediate
-  hops *are the product*: `BackOff → OOMKilling → origin` compressed to
+  hops _are the product_: `BackOff → OOMKilling → origin` compressed to
   `BackOff → origin` keeps the verdict and throws away the diagnosis.
 - **Union by rank** picks whichever parent balances the tree. The requirement is
-  the parent that is *true*. Unrelated criteria.
+  the parent that is _true_. Unrelated criteria.
 
 Union-find minus rank minus path compression is just a forest. At n≈20 there is
 nothing left for the algorithm to contribute.
@@ -474,6 +540,7 @@ nothing left for the algorithm to contribute.
 ---
 
 ### D-25 — Fixed-width time buckets derive shape; they never link findings
+
 **Status:** Accepted
 
 Buckets summarise **one** finding's behaviour over time — occupancy gives
@@ -488,23 +555,24 @@ nowhere — a second copy of a derivable fact is a second source of truth.
 ## Diagnosis (Step 4)
 
 ### D-26 — Shape, not reason, discriminates real problems from background
+
 **Status:** Accepted
 
 **Evidence — every capture, including 01-healthy, carries the same background
 floor:**
 
-| Fixture | Background warnings |
-|---|---|
-| 01-healthy | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` |
-| 02 | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` |
-| 03 | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` |
-| 04 | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` *(+222 real)* |
-| 05 | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` *(+10 real)* |
-| 06 | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` *(+177 real)* |
+| Fixture    | Background warnings                                       |
+| ---------- | --------------------------------------------------------- |
+| 01-healthy | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy`               |
+| 02         | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy`               |
+| 03         | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy`               |
+| 04         | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` _(+222 real)_ |
+| 05         | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` _(+10 real)_  |
+| 06         | 1 `Evicted`, 1 `FailedMount`, 3 `Unhealthy` _(+177 real)_ |
 
 The affected workload is randomised per file. These are genuine `Warning`
 records that the taxonomy correctly classifies as issues, so the acceptance
-criterion *"no false positives on 01-healthy.jsonl"* **cannot** be met by
+criterion _"no false positives on 01-healthy.jsonl"_ **cannot** be met by
 reason-based filtering.
 
 The only separator is shape: 3 events on 1 pod over 13 seconds, ended long
@@ -514,6 +582,7 @@ capture end. Shape only exists once records are grouped (D-16).
 ---
 
 ### D-27 — The trail must be able to report that it ran out of data
+
 **Status:** Accepted
 
 Two distinct terminations, reported differently:
@@ -524,8 +593,8 @@ Two distinct terminations, reported differently:
   start. Medium confidence, and the tool names what would raise it.
 
 **Evidence:** 02 has no deploy marker. Capture opens 10:00:01; first
-`OOMKilling` is 10:02:37. The honest origin is *"earliest evidence at 10:02:37 —
-the cause predates this capture window"*, materially different from 04 where the
+`OOMKilling` is 10:02:37. The honest origin is _"earliest evidence at 10:02:37 —
+the cause predates this capture window"_, materially different from 04 where the
 origin is a real causal event.
 
 **Why it matters:** the brief requires a confidence level per scenario and asks
@@ -537,22 +606,21 @@ whose author writes it by hand afterwards has not.
 ## Open
 
 ### O-01 — Package layout
+
 `docs/engineering-standards.md` §1.1 names `group` / `diagnose` / `correlate` /
 `report`. The repository currently has `otel` / `event` / `classify` / `triage`.
 D-17 collapses correlation into an on-demand function, which may not warrant its
 own package. Needs an ADR.
 
 ### O-02 — Pattern thresholds
+
 D-26 requires numeric thresholds for burst / sustained / recurring /
 deploy-correlated / capacity / node-issue. Each must be a named constant with
-its derivation recorded (`engineering-standards.md` §3.2: *"numbers are never
-magic"*).
+its derivation recorded (`engineering-standards.md` §3.2: _"numbers are never
+magic"_).
 
 ### O-03 — Deploy-correlation window
+
 D-17's `window` parameter. Observed deploy→first-symptom deltas: 03 = 4.4s,
 04 = 7.3s, 06 = 4.7s. All under 10 seconds, which suggests a generous window is
 safe — but the value needs justifying, not guessing.
-
-### O-04 — `.gitignore`
-The repository has none. `output/` (captured tool output) and `.vscode/` are
-currently untracked and undecided.
