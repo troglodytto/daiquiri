@@ -1,7 +1,7 @@
 KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
 20,000 records, 20,000 filtered as noise, 0 findings (137ms)
 
-✓  ALL CLEAR
+✓  ALL CLEAR — no issues detected
 
-   No findings. Nothing here needs an on-call response.
+   Nothing here needs an on-call response.
    Nothing was held back.

@@ -56,21 +56,26 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 	tests := []struct {
 		fixture      string
 		wantRecords  int
+		wantSkipped  int
 		wantFindings int
 	}{
-		{"01-healthy.jsonl", 20000, 3},
-		{"02-memory-leak.jsonl", 20000, 5},
-		{"03-image-pull-failure.jsonl", 20000, 6},
-		{"04-test-a.jsonl", 20000, 5},
-		{"05-test-b.jsonl", 20000, 10},
-		{"06-test-c.jsonl", 20001, 6},
+		{"01-healthy.jsonl", 20000, 0, 3},
+		{"02-memory-leak.jsonl", 20000, 0, 5},
+		{"03-image-pull-failure.jsonl", 20000, 0, 6},
+		{"04-test-a.jsonl", 20000, 0, 5},
+		{"05-test-b.jsonl", 20000, 0, 10},
+
+		// 06 carries one deliberately malformed line, which is skipped and
+		// disclosed rather than aborting the run. See
+		// TestMalformedLineIsSkippedAndDisclosed.
+		{"06-test-c.jsonl", 20000, 1, 5},
 	}
 	for _, tt := range tests {
 		t.Run(tt.fixture, func(t *testing.T) {
 			res := run(t, tt.fixture)
 
 			assert.Equal(t, tt.wantRecords, res.Ingested)
-			assert.Zero(t, res.Skipped, "no provided capture contains a malformed record")
+			assert.Equal(t, tt.wantSkipped, res.Skipped, "a line we could not read is counted, never hidden")
 			assert.Len(t, res.Chart.Findings, tt.wantFindings)
 
 			assert.Len(t, res.Records, tt.wantRecords,
@@ -186,28 +191,25 @@ func TestNodeConditionCarriesItsNodeIdentity(t *testing.T) {
 	assert.Equal(t, event.SeverityCritical, f.Severity)
 }
 
-// TestUnrecognisedReasonIsSurfaced covers the probe record planted in 06, whose
-// body asks not to be buried: "In case there are some new events that we haven't
-// really recognized and handled, we'd much rather surface it, instead of burying
-// it."
+// TestMalformedLineIsSkippedAndDisclosed covers the probe line planted at the
+// end of 06, which is commented out and therefore not JSON.
 //
-// It is a Warning, so the fallback promotes it to an issue rather than demoting
-// it -- the cost of one spurious low-confidence finding is far below the cost of
-// silently dropping a novel failure mode. Recognised stays false, which is what
-// stops the diagnose stage from labelling it or suppressing it on shape.
+// A capture the tool could not fully read must never be able to masquerade as a
+// clean one, so the line is counted rather than silently dropped and the count
+// reaches the header. Ingest continues: one bad line in twenty thousand is a
+// reason to say so, not a reason to abandon the run.
 //
-// The Normal-severity branch of the same fallback, which yields
-// CategoryUnclassified, is covered by classify's own tests; no capture exercises
-// it.
-func TestUnrecognisedReasonIsSurfaced(t *testing.T) {
+// The fallback branches for a reason that IS readable but not in the taxonomy --
+// surfaced as an issue when Warning, demoted to unclassified when Normal -- are
+// covered by classify's own tests. No capture exercises them any more.
+func TestMalformedLineIsSkippedAndDisclosed(t *testing.T) {
 	res := run(t, "06-test-c.jsonl")
 
-	assert.Equal(t, 1, res.Unrecognised, "the header discloses what could not be interpreted")
+	assert.Equal(t, 1, res.Skipped, "the header discloses what could not be read")
+	assert.Equal(t, 20000, res.Ingested, "the other 20,000 records still arrive")
+	assert.Zero(t, res.Unrecognised)
 
-	f := find(t, res, "data-pipeline", "LALALALA")
-	assert.Equal(t, classify.CategoryIssue, f.Category)
-	assert.False(t, f.Recognised, "surfaced, but never claimed as understood")
-	assert.NotEmpty(t, f.Cause)
+	assert.Contains(t, res.Summarise(), "Skipped: 1")
 }
 
 // TestFindingsAreOrderedAndDeterministic guards the trap that Go randomises map
@@ -293,7 +295,6 @@ func TestForestMatchesTheFixtures(t *testing.T) {
 			"search-service/Unhealthy[unhealthy/readiness]":     "",
 			"data-pipeline/ScalingReplicaSet[deploy/scaled]":    "",
 			"data-pipeline/FailedScheduling[failed-scheduling]": "data-pipeline/ScalingReplicaSet[deploy/scaled]",
-			"data-pipeline/LALALALA[unrecognised-warning]":      "", // 600s after the rollout: vetoed by the window
 		}},
 	}
 
@@ -510,11 +511,9 @@ func TestDiagnosisMatchesTheFixtures(t *testing.T) {
 
 		// FailedScheduling is truthfully both capacity and deploy-correlated. The
 		// mechanism wins, because the trigger is already stated by the causal edge.
-		// LALALALA gets no pattern: we could not read it, so we do not label it.
 		{"06-test-c.jsonl", 3, map[string]string{
 			"data-pipeline/ScalingReplicaSet": "",
 			"data-pipeline/FailedScheduling":  "capacity issue",
-			"data-pipeline/LALALALA":          "",
 		}},
 	}
 
@@ -587,9 +586,6 @@ func TestConfidenceMatchesTheFixtures(t *testing.T) {
 		{"04-test-a.jsonl", "checkout-service", "Unhealthy", "explained"},
 		{"05-test-b.jsonl", "auth-service", "Evicted", "explained"},
 		{"06-test-c.jsonl", "data-pipeline", "FailedScheduling", "explained"},
-
-		// Nothing before it and nothing after it.
-		{"06-test-c.jsonl", "data-pipeline", "LALALALA", "unexplained"},
 	}
 
 	for _, tt := range tests {
@@ -604,6 +600,115 @@ func TestConfidenceMatchesTheFixtures(t *testing.T) {
 			}
 
 			t.Fatalf("no finding %s/%s", tt.workload, tt.reason)
+		})
+	}
+}
+
+// TestIncidentsMatchTheFixtures is the acceptance test for the incident view:
+// what the report leads with, for every capture.
+//
+// Root, mechanism and paged are three different nodes answering three different
+// questions, and conflating any two of them was a real bug -- the verdict once
+// quoted 03's BackOff ("repeated image-pull retry") instead of the Failed that
+// names the tag which does not exist.
+func TestIncidentsMatchTheFixtures(t *testing.T) {
+	tests := []struct {
+		fixture      string
+		incidents    int
+		root         string // workload/reason of what set it off
+		mechanism    string // workload/reason of what actually broke
+		paged        string // "" when several symptoms tie
+		leading      string // substring the mechanism's top signature must contain
+		stillFailing bool
+	}{
+		{
+			fixture: "02-memory-leak.jsonl", incidents: 1,
+			root: "recommendation-service/OOMKilling", mechanism: "recommendation-service/OOMKilling",
+			paged: "recommendation-service/BackOff", leading: "exceeded memory limit (512Mi)",
+			stillFailing: true,
+		},
+		{
+			fixture: "03-image-pull-failure.jsonl", incidents: 1,
+			root: "payment-service/ScalingReplicaSet", mechanism: "payment-service/Failed",
+			paged: "payment-service/BackOff", leading: "v2.14.0-rc3",
+			stillFailing: true,
+		},
+		{
+			fixture: "04-test-a.jsonl", incidents: 1,
+			root: "checkout-service/ScalingReplicaSet", mechanism: "checkout-service/Unhealthy",
+			paged: "checkout-service/Unhealthy", leading: "statuscode: 404",
+			stillFailing: true,
+		},
+		{
+			// Six equally-bad evictions: no single symptom paged, and the node
+			// condition itself is both the root and the mechanism.
+			fixture: "05-test-b.jsonl", incidents: 1,
+			root: "node-4/NodeHasDiskPressure", mechanism: "node-4/NodeHasDiskPressure",
+			paged: "", leading: "NodeHasDiskPressure",
+			stillFailing: false,
+		},
+		{
+			fixture: "06-test-c.jsonl", incidents: 1,
+			root: "data-pipeline/ScalingReplicaSet", mechanism: "data-pipeline/FailedScheduling",
+			paged: "data-pipeline/FailedScheduling", leading: "Insufficient cpu",
+			stillFailing: true,
+		},
+	}
+
+	label := func(f group.Finding) string { return f.Workload + "/" + f.Reason }
+
+	for _, tt := range tests {
+		t.Run(tt.fixture, func(t *testing.T) {
+			c := run(t, tt.fixture).Chart
+
+			incidents := c.Incidents()
+			require.Len(t, incidents, tt.incidents)
+
+			in := incidents[0]
+			assert.Equal(t, tt.root, label(c.Findings[in.Root]), "what set it off")
+			assert.Equal(t, tt.mechanism, label(c.Findings[in.Mechanism]), "what actually broke")
+			assert.Equal(t, tt.stillFailing, in.StillFailing)
+
+			if tt.paged == "" {
+				assert.Equal(t, -1, in.Paged, "several symptoms tie; naming one would be a fabrication")
+			} else {
+				require.GreaterOrEqual(t, in.Paged, 0)
+				assert.Equal(t, tt.paged, label(c.Findings[in.Paged]), "what raised the alert")
+			}
+
+			s, ok := c.Diagnoses[in.Mechanism].Leading()
+			require.True(t, ok, "the mechanism must have something to say")
+			assert.Contains(t, s.Text, tt.leading, "the verdict quotes this line")
+
+			assert.NotEmpty(t, c.Remediation(in), "every recognised failure has a next move")
+		})
+	}
+}
+
+// TestHealthyCaptureHasNoIncidents is the whole point of suppression, stated at
+// the level the report actually renders.
+func TestHealthyCaptureHasNoIncidents(t *testing.T) {
+	assert.Empty(t, run(t, "01-healthy.jsonl").Chart.Incidents())
+}
+
+// TestEveryReportedFindingCarriesASignature: the "why" must never be missing
+// from a finding the report will print, because the verdict block quotes it.
+func TestEveryReportedFindingCarriesASignature(t *testing.T) {
+	fixtures := []string{
+		"02-memory-leak.jsonl", "03-image-pull-failure.jsonl",
+		"04-test-a.jsonl", "05-test-b.jsonl", "06-test-c.jsonl",
+	}
+
+	for _, fx := range fixtures {
+		t.Run(fx, func(t *testing.T) {
+			c := run(t, fx).Chart
+
+			for _, i := range c.Reported() {
+				s, ok := c.Diagnoses[i].Leading()
+				require.True(t, ok, "%s has no signature", c.Findings[i].Reason)
+				assert.NotEmpty(t, s.Text)
+				assert.Positive(t, s.Count)
+			}
 		})
 	}
 }

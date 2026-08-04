@@ -176,6 +176,21 @@ type Diagnosis struct {
 	// Suppressed marks background noise the report should not lead with. The
 	// finding is still present and still counted -- see the package prohibition.
 	Suppressed bool
+
+	// Signatures are the distinct things the finding's records say, ranked most
+	// informative first. This is the "why" the pattern alone cannot give: 222
+	// readiness failures reduce to three signatures, and the first of them is
+	// "HTTP probe failed with statuscode: 404".
+	Signatures []Signature
+}
+
+// Leading returns the most informative signature, if there is one.
+func (d Diagnosis) Leading() (Signature, bool) {
+	if len(d.Signatures) == 0 {
+		return Signature{}, false
+	}
+
+	return d.Signatures[0], true
 }
 
 // Chart is a forest with a verdict on every finding.
@@ -189,11 +204,21 @@ type Chart struct {
 
 	// Diagnoses is parallel to Forest.Findings: Diagnoses[i] judges Findings[i].
 	Diagnoses []Diagnosis
+
+	// CaptureEnd is the timestamp of the last record in the capture, including
+	// the lifecycle noise no finding was built from.
+	//
+	// Needed to say whether an incident is ongoing, which no amount of staring
+	// at the findings can answer: a stage cannot tell "still failing" from
+	// "stopped failing" without knowing when the observation stopped. Zero
+	// disables the distinction rather than guessing.
+	CaptureEnd time.Time
 }
 
-// Build judges every finding in f.
-func Build(f link.Forest) Chart {
-	c := Chart{Forest: f, Diagnoses: make([]Diagnosis, len(f.Findings))}
+// Build judges every finding in f. captureEnd is the last record's timestamp;
+// the zero value disables the still-failing distinction.
+func Build(f link.Forest, captureEnd time.Time) Chart {
+	c := Chart{Forest: f, Diagnoses: make([]Diagnosis, len(f.Findings)), CaptureEnd: captureEnd}
 
 	// The verdict functions read only the embedded forest, so filling the slice
 	// as we go cannot make an earlier verdict influence a later one.
@@ -202,6 +227,7 @@ func Build(f link.Forest) Chart {
 			Pattern:    c.patternOf(i),
 			Confidence: c.confidenceOf(i),
 			Suppressed: c.suppressed(i),
+			Signatures: signaturesOf(f.Findings[i]),
 		}
 	}
 
@@ -228,6 +254,39 @@ func (c Chart) Reported() []int {
 // threshold dangerous rather than merely wrong.
 func (c Chart) SuppressedCount() int {
 	return len(c.Diagnoses) - len(c.Reported())
+}
+
+// ShareExplanation reports whether every finding in kids is explained the same
+// way -- same causal rule, same reason, same leading signature.
+//
+// The question is asked of the rule rather than of the evidence text, because
+// evidence is display prose: 05-test-b's six evictions all fired
+// node-condition-named and all differ in the elapsed time they quote.
+//
+// Where it holds, the renderer states the explanation once and gives each child
+// a single line. Where any child differs on any of the three it does not hold,
+// so a child telling a different story can never be folded into its siblings.
+func (c Chart) ShareExplanation(kids []int) bool {
+	if len(kids) < 2 {
+		return false
+	}
+
+	rule := c.Edges[kids[0]].Rule
+	reason := c.Findings[kids[0]].Reason
+
+	lead, ok := c.Diagnoses[kids[0]].Leading()
+	if !ok {
+		return false
+	}
+
+	for _, k := range kids[1:] {
+		other, ok := c.Diagnoses[k].Leading()
+		if !ok || c.Edges[k].Rule != rule || c.Findings[k].Reason != reason || other.Text != lead.Text {
+			return false
+		}
+	}
+
+	return true
 }
 
 // patternRule is one row of the pattern table.

@@ -7,3 +7,42 @@ TIME          SEVERITY  WORKLOAD       NAMESPACE  REASON               COUNT  PO
 10:15:25.779  WARNING   data-pipeline  data       Evicted                  3     3  4m31s    node-4  node issue
 10:20:04.679  INFO      data-pipeline  data       FailedScheduling       177     6  9m55s    -       -
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+━━ INCIDENT 1 of 3 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CRITICAL · explained ━━
+
+   ROOT CAUSE    node-4 reported NodeHasDiskPressure  at 10:15:00.000
+                 node is under disk pressure
+
+   IMPACT        1 event · 0s · stopped before capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ● 10:15:00.000  NodeHasDiskPressure  node-4 · default                     ×1   PAGED HERE 
+     node issue
+
+
+━━ INCIDENT 2 of 3 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ WARNING · explained ━━
+
+   ROOT CAUSE    unknown — data-pipeline reported Evicted  at 10:15:25.779
+                 cause for Evicted
+
+   IMPACT        3 events · 3 pods · 4m31s · stopped before capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ● 10:15:25.779  Evicted  data-pipeline · data            ×3 · 3 pods · 4m31s   PAGED HERE 
+     node issue
+
+
+━━ INCIDENT 3 of 3 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ INFO · unexplained ━━
+
+   ROOT CAUSE    unknown — data-pipeline reported FailedScheduling  at 10:20:04.679
+                 cause for FailedScheduling
+                 ⚠ unexplained — nothing in this capture explains what came before
+
+   IMPACT        177 events · 6 pods · 9m55s · stopped before capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ● 10:20:04.679  FailedScheduling  data-pipeline · data  ×177 · 6 pods · 9m55s   PAGED HERE 
+

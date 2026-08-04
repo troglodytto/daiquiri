@@ -53,7 +53,7 @@ func BenchmarkBuild(b *testing.B) {
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				_ = diagnose.Build(f)
+				_ = diagnose.Build(f, start.Add(time.Hour))
 			}
 		})
 	}
@@ -61,11 +61,11 @@ func BenchmarkBuild(b *testing.B) {
 
 // BenchmarkReported measures what the renderer calls once per run.
 func BenchmarkReported(b *testing.B) {
-	c := diagnose.Build(synthetic(10))
+	c := diagnose.Build(synthetic(10), start.Add(time.Hour))
 
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = c.Reported()
 	}
 }
