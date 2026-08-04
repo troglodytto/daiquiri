@@ -72,16 +72,29 @@ is healthy and the deployment's idea of "healthy" is stale.
 
 ## Confidence: high
 
-High on the rollout as cause and the 404 as mechanism. The evidence is direct,
-not inferred.
+High on the rollout as cause and the 404 as mechanism. Both are quoted straight
+out of the capture.
 
-Two things would raise it further.
+Two things sit outside what this data can settle.
 
 **44 of the 222 events aren't 404s.** 24 are `connection refused`, 20 are
-timeouts, and the event stream doesn't explain them. All 5 pods `Started`
-between 10:22:02 and 10:22:24 and were never killed, so these aren't restart
-churn. I'd want container logs to see whether the process is flapping internally
-without the kubelet noticing.
+timeouts. Nothing in a Kubernetes event stream can tell you *why* a process
+stopped answering on a port. That answer lives in container logs, a heap
+profile, or node metrics, and none of those ship in a JSONL of events.
+
+What the capture does settle is which kind of failure each one is, and the three
+kinds want different things from you:
+
+| Signature | n | What it proves | Where to look |
+|---|---|---|---|
+| `statuscode: 404` | 178 | up, listening, routing, and the path is gone | the deployment spec and the new build's routes |
+| `connection refused` | 24 | nothing bound to that port when the probe fired | container start-up, crash logs |
+| `i/o timeout` | 20 | the connection was accepted, the answer never came | the process is alive and stuck, or the network is |
+
+I can rule out restart churn: all 5 pods `Started` between 10:22:02 and 10:22:24
+and none was ever killed. So something is making the process intermittently
+unavailable without the kubelet ever restarting it, and container logs are how
+you'd find it.
 
 **The previous revision's probe path.** I'm inferring the endpoint moved. The
 old spec would confirm it.
