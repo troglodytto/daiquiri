@@ -1,0 +1,34 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,878 filtered as noise, 2 findings, 3 suppressed as background (140ms)
+
+TIME          SEVERITY  WORKLOAD                NAMESPACE   REASON      COUNT  PODS  WINDOW  NODES                        PATTERN
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:02:37.049  CRITICAL  recommendation-service  production  OOMKilling     26     4  25m43s  node-1,node-3,node-4,node-6  sustained crash-loop
+10:02:44.400  CRITICAL  recommendation-service  production  BackOff        91     4  26m6s   node-1,node-3,node-4,node-6  sustained crash-loop
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+━━ INCIDENT 1 of 1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CRITICAL · partially explained ━━
+
+   ROOT CAUSE    recommendation-service, OOMKilling  at 10:02:37.049
+                 container exceeded its memory limit and was killed by the kernel
+                 → the process is using more memory than it is allowed, which usually
+                   means a leak or a limit set below what the service actually needs
+                 │ Container recommendation in pod <pod> exceeded memory limit (512Mi)
+                 ⚠ partially explained — nothing in this capture explains what came before
+
+   IMPACT        117 events · 4 pods · 26m13s · STILL FAILING at capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ● 10:02:37.049  OOMKilling  recommendation-service · production      ×26 · 4 pods · 25m43s
+     sustained crash-loop  ·  every ~4m11s per pod
+     ▪ Container recommendation in pod <pod> exceeded memory limit (512Mi)  26/26
+
+     ╰─ ● 10:02:44.400  BackOff  recommendation-service · production  ×91 · 4 pods · 26m6s   PAGED HERE 
+           sustained crash-loop  ·  every ~10.8s per pod
+             Back-off restarting failed container recommendation in pod  91/91
+             <pod>_production
+           ⤷ same pod recommendation-service-5a8e2c1f4-b35ff, 7.4s after OOMKilling
+
+   RECOMMENDED   read the previous run's logs for the growth, then raise the limit: kubectl logs recommendation-service-5a8e2c1f4-b35ff -n production --previous
+

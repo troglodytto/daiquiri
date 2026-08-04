@@ -43,6 +43,7 @@ flags:
   -table   render only the prioritised summary table
   -tree    render only the causal incident view
   -json    emit the whole run as JSON
+  -trace   narrow to one workload or pod and mark it
 ```
 
 **With no flags you get both**, in the order you need them: the table is the
@@ -59,6 +60,32 @@ causal trail on its own. Passing both is an error rather than a silent no-op.
 ./daiquiri -tree  testdata/05-test-b.jsonl    # just the incidents
 ./daiquiri -tree  testdata/05-test-b.jsonl > analysis/05.txt   # plain text, no escapes
 ```
+
+### `-trace` — the 3am path
+
+You were paged for one service. You do not want every incident in the cluster;
+you want the trail from your symptom back to its origin.
+
+```sh
+./daiquiri -trace auth-service testdata/05-test-b.jsonl
+```
+
+```
+TRACING auth-service — showing 1 of 1 incident
+
+   ROOT CAUSE    node-4 reported NodeHasDiskPressure  at 10:15:00.000
+   ...
+     ├─ 10:16:25.429  Evicted  auth-service · production  ×1 · 1 pod  +1m25.4s   YOU ARE HERE
+```
+
+`auth-service` did nothing wrong. The trail runs from the pod you were paged for
+back to a node that filled its disk, through two namespaces you do not own.
+
+`-trace` accepts a workload name or a pod instance, implies the incident view,
+and marks exactly one node — the last thing your service did, not every finding
+that happens to share its name. Incidents that do not involve it are counted in
+the header rather than dropped: a filtered report that does not say what it
+filtered can mislead by omission.
 
 `-json` replaces the human views rather than adding to them, so the output pipes
 straight into `jq`. Combining it with `-table` or `-tree` is an error.

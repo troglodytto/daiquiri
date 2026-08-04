@@ -1,0 +1,2615 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "daiquiri",
+    "version": "dev",
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture": {
+    "cluster": "prod-us-east-1",
+    "records_ingested": 20000,
+    "records_skipped": 0,
+    "records_filtered_as_noise": 19772,
+    "records_unrecognised": 0,
+    "observation_end": "2024-06-01T10:29:59.057Z",
+    "elapsed_ms": 138.768
+  },
+  "incidents": [
+    {
+      "severity": "WARNING",
+      "confidence": "explained",
+      "root": 3,
+      "mechanism": 4,
+      "paged": 4,
+      "members": [
+        3,
+        4
+      ],
+      "events": 222,
+      "pods": 5,
+      "workloads": 1,
+      "namespaces": 1,
+      "first_seen": "2024-06-01T10:21:59.977Z",
+      "last_seen": "2024-06-01T10:29:56.262Z",
+      "span": "7m56.285s",
+      "still_failing": true,
+      "remediation": "confirm the probe path exists in the new image: kubectl rollout history deploy/checkout-service -n production"
+    }
+  ],
+  "findings": [
+    {
+      "index": 0,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/memory-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under resource pressure",
+        "meaning": "this pod was killed to protect a machine running low on memory, usually because it asked for less than it actually uses",
+        "fix": "set or raise the memory request for {workload} so the scheduler reserves what it uses"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "data-pipeline-91aeea497-6556b"
+        ],
+        "nodes": [
+          "node-6"
+        ],
+        "first_seen": "2024-06-01T10:02:53.719Z",
+        "last_seen": "2024-06-01T10:02:53.719Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:02:53.719Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "object": "data-pipeline-91aeea497-6556b",
+          "node": "node-6",
+          "event_uid": "c10d0d5e-323d-5e9d-7b41-8e2689287fbe",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "identity": {
+        "kind": "Pod",
+        "workload": "auth-service",
+        "namespace": "production",
+        "reason": "FailedMount",
+        "rule": "failed-mount"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "volume mount failed; a referenced configmap or secret is likely missing",
+        "meaning": "the pod is waiting for a configmap or secret that does not exist, so it cannot start until that config is created",
+        "fix": "create the missing configmap or secret, or fix its name in the pod spec"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "auth-service-de7746487-0141c"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:07:45.565Z",
+        "last_seen": "2024-06-01T10:07:45.565Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "MountVolume.SetUp failed for volume \"config\" : configmap \"auth-service-config\" not found",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:07:45.565Z",
+          "severity": "WARNING",
+          "reason": "FailedMount",
+          "body": "MountVolume.SetUp failed for volume \"config\" : configmap \"auth-service-config\" not found",
+          "object": "auth-service-de7746487-0141c",
+          "node": "node-4",
+          "event_uid": "24123a7d-1388-2f0a-6892-e521369dc13a",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "Unhealthy",
+        "rule": "unhealthy/readiness"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "readiness probe failing; the pod is being kept out of service",
+        "meaning": "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
+        "fix": "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 3,
+        "pods": [
+          "data-pipeline-04f75f6aa-92624"
+        ],
+        "nodes": [
+          "node-5"
+        ],
+        "first_seen": "2024-06-01T10:11:55.960Z",
+        "last_seen": "2024-06-01T10:12:09.756Z",
+        "span": "13.796s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "count": 3,
+          "specific": true,
+          "means": "the connection was not refused, and no answer arrived inside the probe's timeout"
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:11:55.960Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.9.243:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "data-pipeline-04f75f6aa-92624",
+          "node": "node-5",
+          "event_uid": "9e8ab804-3f0d-db82-5be1-feb133a0e3be",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:00.807Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.9.243:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "data-pipeline-04f75f6aa-92624",
+          "node": "node-5",
+          "event_uid": "e5263e62-994e-abe4-fae6-0d6d3c40b0c2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:09.756Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.9.243:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "data-pipeline-04f75f6aa-92624",
+          "node": "node-5",
+          "event_uid": "1e725f4a-e684-911d-ef87-2f713d2cc397",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "identity": {
+        "kind": "Deployment",
+        "workload": "checkout-service",
+        "namespace": "production",
+        "reason": "ScalingReplicaSet",
+        "rule": "deploy/scaled"
+      },
+      "verdict": {
+        "category": "DEPLOY",
+        "severity": "INFO",
+        "recognised": true,
+        "cause": "deployment scaled; a rollout occurred here"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [],
+        "nodes": [],
+        "first_seen": "2024-06-01T10:21:59.977Z",
+        "last_seen": "2024-06-01T10:21:59.977Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": false,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Scaled up replica set checkout-service-7d4f8b9c5 to 5",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:21:59.977Z",
+          "severity": "INFO",
+          "reason": "ScalingReplicaSet",
+          "body": "Scaled up replica set checkout-service-7d4f8b9c5 to 5",
+          "object": "checkout-service",
+          "event_uid": "20758d45-bdb1-e568-4fa7-80d22cea1b0d",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "identity": {
+        "kind": "Pod",
+        "workload": "checkout-service",
+        "namespace": "production",
+        "reason": "Unhealthy",
+        "rule": "unhealthy/readiness"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "readiness probe failing; the pod is being kept out of service",
+        "meaning": "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
+        "fix": "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 222,
+        "pods": [
+          "checkout-service-7d4f8b9c5-005e2",
+          "checkout-service-7d4f8b9c5-272a1",
+          "checkout-service-7d4f8b9c5-7f871",
+          "checkout-service-7d4f8b9c5-c257b",
+          "checkout-service-7d4f8b9c5-cc6bb"
+        ],
+        "nodes": [
+          "node-2",
+          "node-3",
+          "node-5"
+        ],
+        "first_seen": "2024-06-01T10:22:07.319Z",
+        "last_seen": "2024-06-01T10:29:56.262Z",
+        "span": "7m48.943s"
+      },
+      "diagnosis": {
+        "pattern": "deploy-correlated failure",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "count": 178,
+          "specific": true,
+          "means": "the server answered the probe -- with a status saying this path is not what it wants"
+        },
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/healthcheck\": dial tcp <ip>:8080: connect: connection refused",
+          "count": 24,
+          "specific": true,
+          "means": "nothing was listening on that port when the probe fired"
+        },
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "count": 20,
+          "specific": true,
+          "means": "the connection was not refused, and no answer arrived inside the probe's timeout"
+        }
+      ],
+      "cadence": {
+        "intervals_measured": 217,
+        "objects": 5,
+        "median": "10.486s",
+        "shortest": "9.556s",
+        "longest": "11.428s",
+        "early_mean": "10.459s",
+        "late_mean": "10.514s",
+        "trend": "steady"
+      },
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "rollout-replicaset",
+        "evidence": "rollout created replica set checkout-service-7d4f8b9c5 7.3s earlier; all 5 affected pods belong to it",
+        "delay": "7.342s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:22:07.319Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "4a656207-4d92-b1ac-6c30-68fae9346d09",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:14.454Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "f7bef495-8f52-98a7-29bf-00a1dcf658a0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:15.743Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "a846a84b-e048-eb73-8cab-ec63405bb2f4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:17.921Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "1c2ffc26-f6fa-d4ee-1665-47dc986629cf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:24.443Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "48c1569f-d3de-7702-27de-7de089a8095e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:25.901Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "a0e84d46-8bd4-81cf-7905-3b9bfad34ad9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:26.310Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "8d6969bb-b30f-08fe-05dd-d42dfe3d02fb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:28.922Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "85667904-29b0-e53b-ee0d-447b1d2f7d46",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:30.538Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "f35395ee-804a-a6fb-4090-b7972ba8159b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:34.806Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": dial tcp 10.244.1.25:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "0fad969d-cb50-6737-f341-cce70783eb8c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:35.927Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "59d51bd1-0e77-5898-6476-7e7fd22b2bd1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:36.213Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "01979222-30d6-c728-f7b7-a010a92266f7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:39.260Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "7850c1b6-c892-e300-0535-76ea377f785d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:40.925Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "6d0a018f-390d-d5be-9f8f-6da1d8b17438",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:45.341Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "f306d140-dd5e-1cb0-ca33-48ca421f8188",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:46.124Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "5f961902-5f47-c290-ee3d-715d699ec7b9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:46.689Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": dial tcp 10.244.13.247:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "b62f8f23-932b-8dd7-5ad2-ca3119d04819",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:49.868Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "629fdaa4-60cc-0ea9-04c4-fa66547ad618",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:51.362Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "4559b971-1b29-fcc3-51b3-dae3c20b2253",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:56.077Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "3195727a-1062-99db-94db-a8fc72de77ab",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:56.902Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "7d5ca636-8feb-adb9-cb81-83990937e1e2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:57.261Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "e3190f70-14fc-f856-52a5-e88c0c7d02a1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:00.894Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "94a75454-afa3-830d-c652-074e6b9fd5ba",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:01.954Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "b4795a7a-d0d6-83b5-cc3b-8dc1c4701a22",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:06.279Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": dial tcp 10.244.1.25:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "e452e5d5-7117-d459-86b1-81479332713b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:07.226Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "e7c960d0-66d5-4112-2414-62950065656d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:08.362Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "a2bf8f98-c724-9f0b-a3f9-f9f10c4dce77",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:11.519Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": dial tcp 10.244.12.148:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "8dde2124-cc2a-515b-4c54-4d7d9f1e8d64",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:12.422Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "e515e275-e252-8c79-9bb7-3b9760e3ee16",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:16.655Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "b2abbd19-5174-69a9-d5a0-329ccca74973",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:17.054Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "388f4581-0ae0-891c-a297-d8c2823ff80d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:18.334Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "512c474e-a219-0d6d-e25d-f5a84ea9ab3d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:21.947Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "69e75bc7-a2a0-4c2c-7c19-a6f603505d3a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:22.782Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "8eeff3fc-25ff-4cc7-202e-413313ad5757",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:27.339Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "eebef998-dd0e-f08f-1406-9ab663228d56",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:28.150Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "0e44afd3-d428-11bd-bfe3-8cefafb4a53f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:28.715Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "9d3da578-d121-f666-1593-b178f239fc0c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:32.328Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "2692d44b-95ef-5e53-fe63-b2b925a0e480",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:33.684Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "673e65e6-54ad-985a-f0e2-358096137041",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:38.020Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "10b76f1a-67c9-6288-7529-9d38685f9b17",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:38.913Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "07ea6ebc-8ca1-0daa-5dd5-2cb07e7304e5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:39.488Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "0c642241-d763-e20e-6f43-f78cf6e9d8e3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:43.500Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "b66872ba-4aa4-92d1-b111-33483b4073e5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:43.752Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "6d0f62ad-71a1-dc05-9677-f6c44a9c7575",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:48.356Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "fc71e17b-f1ac-405c-787b-6fc40ebb9072",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:49.131Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "3754eb33-d6d9-78a9-a912-14938c3afb84",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:50.303Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "ffbb5272-d1f6-807d-27f1-3f68265ff90d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:53.689Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "97fc1bea-7f40-ddd5-a61d-e02a5ef4b551",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:54.160Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "86a25e93-db70-4175-ea45-4d82505a950b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:58.206Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "418d424d-0129-27c4-b7cd-512e27fc37a3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:59.655Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "aad5d618-780b-0e85-65ec-f3bfe351a060",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:00.737Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "7f65d6f5-e758-264a-aabf-e11d10e1b98a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:03.994Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "27e579ee-ed90-509b-c18b-5a462bbb1efc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:04.057Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "dcac1b0f-269c-a265-0adf-2e16045bac99",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:08.793Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "d0777fe3-a648-64c6-58f1-85d9a44c497a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:10.910Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "13505cfc-9ca9-1005-d12e-74a1a8461c39",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:11.566Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "6376371f-e6db-b053-4e4d-c63e6025dd95",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:14.375Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "cb093e4b-2806-2403-ca47-ca13b39b9769",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:15.219Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "b96b7aa2-de90-e877-2c55-4886d179175f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:19.223Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "5b28ad01-1734-301f-adfa-b1d2ae9feb47",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:21.079Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "691aa089-10b9-de28-5792-20298a598279",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:22.465Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "960e6f6b-6523-b219-6ced-25100c298f90",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:24.904Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "5577b3ba-40df-a853-f545-a09256f0f873",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:25.483Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "80199483-af50-3789-7ab1-c35df48b022b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:30.313Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "6ec521c6-50f4-77e9-272c-3aeb11947e2a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:31.863Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "a08dd633-ec5a-bf95-9f96-27c0303393bf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:33.163Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "3e483ccc-a4ea-a917-914e-175d6701f1a6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:35.459Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "6314dcff-853e-4caa-aaa8-836c4e2d60dc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:35.813Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "1d3d35c0-aa1e-798f-0b86-9eceb2d1a95e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:41.426Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "560bc76b-c136-bc18-f540-fa5d5dc438fa",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:42.452Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "d005827a-e5f3-4342-d332-41d2ae537552",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:43.907Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "4eaad155-f908-4198-8c35-e021b2431ba7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:46.314Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "af6a929f-9bf5-3971-5bea-8dd25d2ee54e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:46.355Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": dial tcp 10.244.12.148:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "654c29e8-d85b-833b-ae2b-f28abc89fbae",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:51.624Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "51ab23b9-7184-8d7f-00c0-1ca7ad29e02a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:53.297Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.243:8080/healthcheck\": dial tcp 10.244.11.243:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "b1e238b5-6aec-9d42-3a42-897bcc926ec5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:54.662Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "32ae469c-4cf7-e6bd-9969-5a120894daf5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:56.493Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "7327acdd-e3b1-ba68-76cf-e8b9fb7d0cdb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:57.287Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "16004cfa-20c3-8579-a83a-68cbb066caf0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:02.535Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "a0aed19d-1d19-9135-db61-a85f30214c25",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:03.499Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "bb746e90-33d6-4e9e-5821-75979676c562",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:04.376Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "2335250b-b395-3143-38bf-ca9aa6d30704",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:06.442Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "a6124dc1-265e-c31a-1e73-447cb99c2435",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:07.737Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "3ab59b3b-37f1-fb10-442d-07e0e9cad4c8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:12.449Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": dial tcp 10.244.1.25:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "1d9c0702-1ae6-ccb3-a86f-9027fac50318",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:13.892Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "d8ace110-3354-da4b-ffcb-e04dc669a78c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:14.458Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "694adfe4-d6ee-0a11-cb4c-68596b7df159",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:16.603Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "94ba2c29-d43d-9205-8d87-efa9886ead77",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:18.034Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "8c2865ea-54f9-78ca-153a-e30e6c14b08c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:22.415Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "3ca43caf-72a0-a465-cc0b-e2c71eb953a5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:23.949Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "33987d51-d6f6-7d02-d4b7-a536ccb49902",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:24.035Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "fdb31bcd-80b0-e004-4bc6-be91529deaa8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:27.167Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "434cca57-eedd-c833-a615-188bdf0934bb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:28.569Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "e38f2f80-1acd-618b-fcaf-b27510c89346",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:33.026Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "63e19063-9257-3545-0941-76c342cfe983",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:34.265Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "c71cb5d3-adb1-73a7-675d-c85fbad12e67",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:34.764Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "9df36831-97e1-180b-721f-43a1082d6218",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:37.568Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "2f44bbee-2433-c71e-0c17-77199406eb7a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:39.142Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "10b1b0d5-84a9-4e6d-023b-cd4a4efdaf0d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:43.472Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "7706d363-efee-60fb-866c-b171cb6353f0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:44.592Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "424da2eb-3e20-a74e-1628-8041ab646987",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:44.812Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "d4da2943-b73f-7d93-5977-01ae5dc6dd62",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:48.306Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "464a574a-485a-8a1c-20e8-72ca1d5ad313",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:48.825Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "8f4be56a-823d-32cd-def7-8411b752a19e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:53.806Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "9f72b2da-b0a6-b84c-b993-a95e8e506705",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:55.223Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "30041139-b61b-e43c-549b-18b74e3512e2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:55.372Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "b1b0e2e8-a1be-e6c1-5c8c-62300aa75630",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:58.426Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "149922cc-d92f-facc-4e7d-4255b7666c6f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:59.104Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "b29cf25c-ba45-a577-c71a-14de3babedad",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:04.675Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "3f317f9f-3b35-4a41-5781-ba849cfcf1e7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:05.220Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "fe2c0570-d700-a438-cc1c-5758a47d458a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:05.849Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.243:8080/healthcheck\": dial tcp 10.244.11.243:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "b7183f2d-d201-4861-ca25-30a3bdcabe64",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:09.103Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "4d3a4d06-68bc-9741-2bf9-ffc6fb3f9005",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:09.970Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "4e8a26e9-d281-503f-fac2-299d2bf0c343",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:15.175Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "21223f06-ae76-b030-cd85-9ac7a8879e4c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:15.405Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "33e3000d-a1f1-dab0-8d5a-9e663150a033",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:16.449Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "ab0fda27-3bf5-b3fa-feae-7f84ae66f408",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:19.589Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "2b5c6224-3139-c484-0c1c-b5de7e2775ab",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:20.669Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": dial tcp 10.244.12.148:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "770f5b8d-d482-a5ad-86e8-5d7798221a32",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:25.281Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": dial tcp 10.244.1.25:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "572eb4fd-ba23-0524-2805-55824e672750",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:25.848Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "1349f18f-d2f9-fbaf-b5ae-5d75996a39f3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:26.919Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "fc4f7a72-f9a4-4c00-4904-6a0454dac214",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:30.110Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "a6ccd0f5-9ffd-5845-1118-128d97a31ad7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:31.265Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "651a79a6-3292-8e22-e86f-aebdf3977362",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:36.519Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "4efcfacb-e517-0a10-9355-938cc31daff6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:36.882Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "6312736a-3bf7-e25c-0c6d-c3b530efcb3d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:37.616Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "375ca6f1-4449-a59a-3284-19a86e6275eb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:41.255Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "297cbfe6-4960-52d9-c8a3-deeb932418f0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:42.132Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "4b579361-3d86-2179-0c81-729deca85083",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:47.091Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "d13a2319-de31-b4b3-2347-a4c1f6278bcd",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:47.126Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "a6b66054-783e-b672-beb6-d924f85e960a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:48.021Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "08f6c943-8289-4c66-0cd7-00da514750ba",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:51.238Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "533464e3-52e7-d67b-b676-36d12eb1c179",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:53.243Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "ced964ce-1984-0b08-863c-61694899f638",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:57.079Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "c22680dd-4870-04fd-7ae6-7b314f1b99da",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:57.404Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "1e488264-4875-b3e0-db56-66b64f1ef1e2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:58.315Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "8f2ea2ab-ec93-12e8-3108-6e4723d497a1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:01.812Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "c54170c6-d5fd-6d4f-1a67-f4a523922bc0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:03.483Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "445bbdab-7b23-658b-b2f0-12e613106f98",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:07.765Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "b04927b5-05af-04a1-3ac9-255dc4b58522",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:07.983Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "38b37419-546c-7d24-1690-aa7e52e7028d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:08.647Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "87bbaeb3-0daa-ba47-a49f-d0cae69e836d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:13.001Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "9d6282ca-5ec0-365d-9000-7b268cb21536",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:14.306Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "70de83c8-b9a5-af14-6a63-0be8b895d3f7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:18.343Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "e1233e9d-888c-171d-e745-de9c5b0d3d23",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:18.618Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "1a5b5bc4-c46e-a67a-9ec8-25f5960d211e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:18.709Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "e9bced19-cd43-bb02-71c6-646222781933",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:23.559Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "e7dc07e4-58fa-17d9-28c2-abb4934b4b79",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:24.214Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "114fcfed-9bf9-ccf7-7901-1afa35f80d31",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:28.101Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": dial tcp 10.244.1.25:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "c107630a-97e0-4011-993a-02b495dc981d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:29.372Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "3e2ec619-1d1c-9de5-b6f9-347432dc39aa",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:29.787Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "d7e1a111-1037-c04f-ac03-c68f47c95a55",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:34.479Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "6a9e0e60-3220-c259-75ad-9739814ce5e4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:35.228Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "75e4fae7-3bd3-3392-1eaa-9c80797fed7f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:38.906Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "2c0beed7-b2a1-df68-6c57-8754b1767bad",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:39.896Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "05517bbe-29d4-bd59-a763-ffd050c57969",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:39.905Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "c9d5afb8-33d8-5edc-7ad9-2817080d4d65",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:45.285Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "1dc4c608-1fd1-b257-8fff-2de82ac3b8c9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:45.930Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "0c7886a2-fb7b-0395-9483-79573b5d4229",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:49.049Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "decf50aa-68a1-6bfb-e253-3d6367cc9ccf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:49.915Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.243:8080/healthcheck\": dial tcp 10.244.11.243:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "deb43289-d82c-4a8d-271a-33ca16b2eec3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:50.438Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": dial tcp 10.244.13.247:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "9de860b1-7e40-545c-28be-ae31febc0ff9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:55.364Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "3f8512a9-dc2f-9d4f-f4ef-e72f0484e9f0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:55.760Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "662f2c27-fd8b-c489-6b0d-7a7558e401df",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:59.587Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "827173f0-bd70-2954-9ca8-774788c80cfe",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:00.160Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.243:8080/healthcheck\": dial tcp 10.244.11.243:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "aea7c539-e15e-bbac-f634-41593f9256b4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:00.632Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "4008a64d-f00c-c8da-b80c-b6627ef53603",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:05.421Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "fff62693-53f2-6b9a-3245-a88c937d892e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:06.048Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "f458c719-7fda-e696-e155-ab96ecfb872d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:09.666Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "708d4b72-b71a-aa97-d867-f95f500d5b0e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:10.444Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.243:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "cce2a910-d5d4-3a24-bdd0-58b4d9a34f0c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:10.953Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "0cd30074-59ef-26aa-1f3b-ded7458d3e58",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:15.913Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "b361e70c-8f19-1e63-b728-205ed7de82f8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:16.413Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "6e179ebc-c31f-995d-adf6-ad4b4486df11",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:19.606Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "5a3a9e14-5057-d9e4-b9f6-69c1a58c5956",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:20.829Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "3becdb4d-e206-6756-1b4e-b815cd0e4a97",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:20.911Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": dial tcp 10.244.13.247:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "71ed8481-bc03-7cf0-d494-f0d606736a8a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:26.471Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "98a458c7-5440-dd57-0ef7-0643056862b6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:26.967Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "64fd7999-da01-da11-f39b-9db0a77d06cb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:30.470Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": dial tcp 10.244.1.25:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "d3449c9f-b994-9865-1d84-a5648a8ea827",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:31.224Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "9eeec9c5-d66b-b016-badf-799826be20cf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:31.730Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "bb0b9af2-f6de-1f20-fa9f-a6037bfa6bca",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:36.618Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "8c9b4a84-3121-77b7-52f0-f42701036c75",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:37.827Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "0f1ecbd4-d5f3-707f-4c3c-8565ddd59bd3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:41.064Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "90444ac0-4add-7000-5a86-91e8f74c4732",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:41.474Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "e89c69a8-522a-465d-136d-a496133d786a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:42.893Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.243:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "a7011ae3-9f7b-196f-b425-bd86b6dc81d8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:46.847Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "4682e460-fb6f-3f3b-1a36-fe2bb817450a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:48.259Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": dial tcp 10.244.14.127:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "69ac3d75-7522-0348-a482-911bead25526",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:51.174Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "c48a0bc0-e541-feae-6dd3-981a9c8719c5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:52.106Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "0ad90b0b-44ad-5b95-1783-55d6ae25c56a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:53.878Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "e2928c12-328d-0f85-86f0-4f8ca79b8f58",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:57.561Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "241c00c7-9512-19ef-a0ab-c23fccc73b52",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:59.357Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.14.127:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "91f708a4-7df3-3a30-309d-6896d9aefbbf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:02.260Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "e31346d0-8b18-734c-2754-ae0bc0ea46ab",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:03.073Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "5429135b-bcbf-69a2-caff-f9fab81ec9a8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:03.689Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "02d32894-b684-a27f-af23-a4aab9a82d5c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:08.456Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "879857d9-d287-d87c-8be9-5951fd3ac246",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:09.930Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "e381b5db-c91e-fb81-d35b-fd34d7791f07",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:13.089Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "33c57b13-be55-8ea9-769d-28c69244516f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:13.364Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "70fee4ec-4d27-5cac-41c7-be56e12416b8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:14.555Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "1181a554-d306-f61e-2b4d-78bd89e2f65b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:18.376Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "d2d3719d-a8b4-591e-37e1-c08f65bd4014",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:20.997Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "15f44e09-6c26-a4b4-3c86-cf9df0c9c116",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:23.812Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.247:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "2726cb71-dd02-1886-62b3-45d591b1efea",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:23.902Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "aac26a51-28fd-cdac-57b4-adc362efe3fe",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:25.567Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "94aba294-ea5c-a677-574f-8be3a14cda13",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:29.804Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "363a9f88-bc9a-b61c-88a8-9ee8fd6ad538",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:30.857Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "c22a711f-9f66-b251-5be7-263fa5c809f0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:34.499Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "22cee1e9-5a67-89f1-459e-9d65522dbf38",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:34.690Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "3b266415-f1b6-e7a1-b3dc-472d9f4a6624",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:35.750Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "87df68b7-8feb-69eb-bbb3-bfde899fae83",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:40.242Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.12.148:8080/healthcheck\": dial tcp 10.244.12.148:8080: connect: connection refused",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "f76bf98f-443d-0db4-88e2-052593c16ebb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:40.902Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "060e9df3-9235-de99-ebe2-2d008ffc4452",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:45.084Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "9a17df63-6691-80e7-59ac-bc086fa2e022",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:45.204Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "24732f49-1341-8829-0e83-7d54f6727ebe",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:46.184Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "6651e38c-1443-b934-ead0-79759550e251",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:50.712Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-005e2",
+          "node": "node-2",
+          "event_uid": "9e94b910-c5d6-dd3a-90c6-4082830b6798",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:51.842Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-272a1",
+          "node": "node-2",
+          "event_uid": "2957adcf-a132-f7c0-0f7d-ac9d1ae9b8ca",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:55.424Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.1.25:8080/healthcheck\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "checkout-service-7d4f8b9c5-c257b",
+          "node": "node-2",
+          "event_uid": "582102dd-be4e-9c45-e5fc-2dac02304b6f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:55.734Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-cc6bb",
+          "node": "node-5",
+          "event_uid": "dfb151cb-584a-8cb5-e6ec-5dae0a026fa4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:29:56.262Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: HTTP probe failed with statuscode: 404",
+          "object": "checkout-service-7d4f8b9c5-7f871",
+          "node": "node-3",
+          "event_uid": "172a3646-2c17-d256-5d33-06be237a468c",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

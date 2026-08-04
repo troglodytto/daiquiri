@@ -54,7 +54,7 @@ type palette struct {
 	// does -- a diagnosis, a quoted record, prose evidence, two badges -- and
 	// they need to be distinguishable without any of them shouting.
 	pattern, signature, evidence, edge lipgloss.Style
-	rootTag, pagedTag                  lipgloss.Style
+	rootTag, pagedTag, tracedTag       lipgloss.Style
 }
 
 func paletteFrom(lr *lipgloss.Renderer) palette {
@@ -91,6 +91,11 @@ func paletteFrom(lr *lipgloss.Renderer) palette {
 		// reading, and inversion survives a colour scheme that mangles hues.
 		rootTag:  lr.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("3")),
 		pagedTag: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("1")),
+
+		// The traced workload is marked in a third colour, because it answers a
+		// different question from the other two: not "what broke" or "what
+		// paged", but "where am I in this".
+		tracedTag: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("6")),
 	}
 }
 
@@ -102,6 +107,30 @@ type Renderer struct {
 
 	// view selects which of the two renderings to produce.
 	view View
+
+	// trace narrows the incident view to a named workload and marks it.
+	trace string
+}
+
+// Trace narrows the report to incidents involving one workload, and marks it
+// wherever it appears.
+//
+// This is the 3am path: you are paged for one service, and what you need is not
+// every incident in the cluster but the trail from your symptom back to its
+// origin -- which in 05-test-b runs from an evicted pod to a node that filled
+// its disk, through nothing your service did.
+//
+// Incidents that do not involve it are counted in one line rather than dropped.
+// A filtered report that does not say what it filtered can mislead by omission.
+func (r *Renderer) Trace(workload string) *Renderer {
+	r.trace = workload
+
+	// Tracing implies the incident view. The table has no notion of a trail, so
+	// narrowing it to one workload would just hide rows -- and a caller who
+	// asked to follow a thread wants the thread.
+	r.view = ViewTree
+
+	return r
 }
 
 // View selects what the renderer produces.

@@ -1,0 +1,1564 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "daiquiri",
+    "version": "dev",
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture": {
+    "cluster": "prod-us-east-1",
+    "records_ingested": 20000,
+    "records_skipped": 0,
+    "records_filtered_as_noise": 19878,
+    "records_unrecognised": 0,
+    "observation_end": "2024-06-01T10:29:59.057Z",
+    "elapsed_ms": 140.487
+  },
+  "incidents": [
+    {
+      "severity": "CRITICAL",
+      "confidence": "partially explained",
+      "root": 1,
+      "mechanism": 1,
+      "paged": 2,
+      "members": [
+        1,
+        2
+      ],
+      "events": 117,
+      "pods": 4,
+      "workloads": 1,
+      "namespaces": 1,
+      "first_seen": "2024-06-01T10:02:37.049Z",
+      "last_seen": "2024-06-01T10:28:50.272Z",
+      "span": "26m13.223s",
+      "still_failing": true,
+      "remediation": "read the previous run's logs for the growth, then raise the limit: kubectl logs recommendation-service-5a8e2c1f4-b35ff -n production --previous"
+    }
+  ],
+  "findings": [
+    {
+      "index": 0,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/memory-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under resource pressure",
+        "meaning": "this pod was killed to protect a machine running low on memory, usually because it asked for less than it actually uses",
+        "fix": "set or raise the memory request for {workload} so the scheduler reserves what it uses"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "data-pipeline-720c7966d-02e41"
+        ],
+        "nodes": [
+          "node-5"
+        ],
+        "first_seen": "2024-06-01T10:01:07.653Z",
+        "last_seen": "2024-06-01T10:01:07.653Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:01:07.653Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "object": "data-pipeline-720c7966d-02e41",
+          "node": "node-5",
+          "event_uid": "6d0f62ad-71a1-dc05-9677-f6c44a9c7575",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "identity": {
+        "kind": "Pod",
+        "workload": "recommendation-service",
+        "namespace": "production",
+        "reason": "OOMKilling",
+        "rule": "oom-killed"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "container exceeded its memory limit and was killed by the kernel",
+        "meaning": "the process is using more memory than it is allowed, which usually means a leak or a limit set below what the service actually needs",
+        "fix": "read the previous run's logs for the growth, then raise the limit: kubectl logs {pod} -n {namespace} --previous"
+      },
+      "shape": {
+        "occurrences": 26,
+        "pods": [
+          "recommendation-service-5a8e2c1f4-b35ff",
+          "recommendation-service-5a8e2c1f4-bd016",
+          "recommendation-service-5a8e2c1f4-e0556",
+          "recommendation-service-5a8e2c1f4-ea1b0"
+        ],
+        "nodes": [
+          "node-1",
+          "node-3",
+          "node-4",
+          "node-6"
+        ],
+        "first_seen": "2024-06-01T10:02:37.049Z",
+        "last_seen": "2024-06-01T10:28:20.289Z",
+        "span": "25m43.24s"
+      },
+      "diagnosis": {
+        "pattern": "sustained crash-loop",
+        "confidence": "partially explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": true,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Container recommendation in pod <pod> exceeded memory limit (512Mi)",
+          "count": 26,
+          "specific": true
+        }
+      ],
+      "cadence": {
+        "intervals_measured": 22,
+        "objects": 4,
+        "median": "4m11.24s",
+        "shortest": "2m49.49s",
+        "longest": "5m26.4s",
+        "early_mean": "4m43.793s",
+        "late_mean": "3m43.641s",
+        "trend": "steady"
+      },
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:02:37.049Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "3669180e-759a-cbc0-86fa-2e0227571b64",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:23.016Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-e0556 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "2ed50729-d60a-2324-e093-4680423e8acc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:41.349Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-bd016 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "c25dc97e-3a2b-1b39-2d45-c475b38c89fb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:43.173Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "f42d0ff3-1aaf-5fe4-2e4f-a05b440adf9b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:15.036Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "cfc9d188-2135-bbc7-d25d-13fc0d7424b6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:20.924Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-bd016 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "95ec12d5-6829-21c4-db41-e5d48250318c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:08:35.166Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-e0556 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "e3000535-76ea-377f-785d-4d100dc3333a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:09:09.573Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "de25df5a-84ea-9ab3-d0d4-2616717ae71b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:11:42.853Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-bd016 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "80ff9ddc-66ab-29d0-4d07-77fe3a64864c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:14.328Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "f0e79d65-a980-b946-1284-69f5a54c73f5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:37.157Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-e0556 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "a35a6d8f-0a2d-dd17-3f03-a637c7d717a1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:13:55.668Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "f7982be3-0082-d135-3bf4-7f584b78632a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:16:25.568Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "ae537552-8c96-b1e2-38b5-6aec9d423a42",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:16:59.782Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "dd748a26-3f50-9b63-1e61-4a8efe2e559f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:05.057Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-bd016 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "2a0a465c-c0be-2c71-eb95-3a5c51bd6377",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:00.014Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-e0556 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "c89346a6-0a8a-9c9b-1e1c-41c76a7826c8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:15.058Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "1dab08d5-a9e6-6315-0a03-3a490e6c7fbc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:55.459Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "347432dc-39aa-3ce5-6812-bea7d9759821",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:52.162Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-bd016 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "59fe52d5-545f-d1b7-fc4c-f6e29137df1f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:55.162Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-e0556 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "2e613106-f98b-9fda-73ac-4098320302fc",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:52.294Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "0dd80318-1139-da16-4095-fe5f40542913",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:37.274Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "169bdecb-071d-ff7e-f783-2fb1f0e564ba",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:04.404Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-bd016 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "788c80cf-e17d-702a-ce26-46c978878204",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:01.037Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-e0556 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "440dd570-ef70-6430-5686-2b66463ceca4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:00.632Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "2fa562ed-d9a0-43d6-85a6-c64073a073e8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:20.289Z",
+          "severity": "WARNING",
+          "reason": "OOMKilling",
+          "body": "Container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0 exceeded memory limit (512Mi)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "cac8e694-aba2-94ea-5ca6-77574f8be3a1",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "kind": "Pod",
+        "workload": "recommendation-service",
+        "namespace": "production",
+        "reason": "BackOff",
+        "rule": "backoff/crash-loop"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "container is crash-looping and repeatedly failing to start",
+        "meaning": "the container starts, dies, and is restarted over and over -- it is failing during startup or crashing immediately after it",
+        "fix": "read the previous container's exit: kubectl logs {pod} -n {namespace} --previous"
+      },
+      "shape": {
+        "occurrences": 91,
+        "pods": [
+          "recommendation-service-5a8e2c1f4-b35ff",
+          "recommendation-service-5a8e2c1f4-bd016",
+          "recommendation-service-5a8e2c1f4-e0556",
+          "recommendation-service-5a8e2c1f4-ea1b0"
+        ],
+        "nodes": [
+          "node-1",
+          "node-3",
+          "node-4",
+          "node-6"
+        ],
+        "first_seen": "2024-06-01T10:02:44.400Z",
+        "last_seen": "2024-06-01T10:28:50.272Z",
+        "span": "26m5.872s"
+      },
+      "diagnosis": {
+        "pattern": "sustained crash-loop",
+        "confidence": "partially explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Back-off restarting failed container recommendation in pod <pod>_production",
+          "count": 91,
+          "specific": false
+        }
+      ],
+      "cadence": {
+        "intervals_measured": 87,
+        "objects": 4,
+        "median": "10.754s",
+        "shortest": "7.351s",
+        "longest": "5m2.528s",
+        "early_mean": "1m17.148s",
+        "late_mean": "53.968s",
+        "trend": "steady"
+      },
+      "edge": {
+        "parent": 1,
+        "kind": "caused",
+        "rule": "same-pod",
+        "evidence": "same pod recommendation-service-5a8e2c1f4-b35ff, 7.4s after OOMKilling",
+        "delay": "7.351s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:02:44.400Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "8ea73027-271e-77f8-71b2-534dbd9a3f0c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:02:53.245Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "cae0aa69-fd21-da7f-90fa-f5bbf930a501",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:05.394Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "43c60366-af24-cbee-9515-376491652a18",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:34.292Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "32338cbc-f9f6-ef23-5b59-b592fdcf8200",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:44.321Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "0e32bed5-09ec-ddf5-f614-22fcfa2fbec3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:49.037Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "da36f15d-8287-e038-5625-5a3f8caeed08",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:52.752Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "77d29f24-4eda-3267-a6b2-c01610de2c4f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:54.444Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "b420b9dc-925c-9a17-5155-afdab503b5cb",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:03:57.592Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "62b8ada6-9649-72a9-a32b-ee6eca9218b2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:04:03.561Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "1b5b3797-2520-ba1d-148d-2e062a3e6ed1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:04:08.939Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "ce667eee-4c12-c949-33a5-b789b5d7230c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:04:11.521Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "f4155e10-2652-6ea9-4e47-54eccdfc227c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:04:16.290Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "bfc1efd7-5736-0b65-9b98-ec87d0f86b88",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:04:24.236Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "9f41f265-6b6c-5ca3-6788-d6969bbb30f0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:25.516Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "c26eef8a-f7cb-8156-c660-e29ffcef6ebd",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:29.043Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "d45c1f8f-306d-140d-d5e1-cb0ca3348ca4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:36.445Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "de926ae9-975c-ace1-86be-883845a0e84d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:36.947Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "81884fc9-24e8-00e0-616b-eab7553cc1ec",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:45.396Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "bd481cf7-9053-b9bf-ad34-ad926b183c72",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:46.881Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "14ac7f2e-452e-5d57-117d-45986b181479",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:54.946Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "0e775898-6476-7e7f-d22b-2bd137bf5f96",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:55.323Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "f65d9c6c-83a1-e979-78d2-f11dc67a1dee",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:08:43.065Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "722c39fb-b4ed-7348-990f-fd894a75454a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:08:55.493Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "2cecc9aa-baf4-660b-93b3-8cea8dde2124",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:09:07.316Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "ea33d6e5-9710-a997-31a8-6d2f5fef2d21",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:09:16.160Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "073c92cc-2666-708b-fec8-00b3e418410f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:09:20.618Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "1593b178-f239-fc0c-cf33-0c642241d763",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:09:32.271Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "e6f43f78-cf6e-9d8e-3b92-adbdb0ee75ca",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:09:41.324Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "fdaa90b3-bc93-33af-5544-d17f65d6f5e7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:11:54.230Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "f185d9a4-4c49-7a3a-c8af-500168a5b409",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:02.122Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "dfab1d2a-e9fe-b47e-ae46-ec521c650f47",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:12.531Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "6a186917-401b-c07a-0062-560bc76bc136",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:26.459Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "ba07ea6e-bc8c-a10d-aa5d-d52cb07e7304",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:38.432Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "dac3ff07-b90f-a148-23ba-929b2edeb4d0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:44.898Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "199483af-5037-897a-b1c3-5df48b022bb1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:50.975Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "487faf0f-6f4a-75ce-3467-03190bf61324",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:12:55.145Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "d3d35c0a-a1e7-98f0-b869-eceb2d1a95e6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:13:05.899Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "654c29e8-d85b-833b-ae2b-f28abc89fbae",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:14:04.475Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "c923b679-4516-35ed-7ef4-69ef861c6233",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:14:13.482Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "0bb39531-4338-bfca-9aa6-d30704179930",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:14:21.373Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "e4d6ee0a-11cb-4c68-596b-7df15900015b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:14:30.725Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "bcd80b0e-0044-bc6b-e915-29deaa83774c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:16:38.317Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "bcc926ec-582b-87f7-9aca-3e733662d41c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:16:47.324Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "979676c5-623a-51d8-ace1-103354da4bff",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:16:58.843Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "4c45ffdc-0aff-d3b3-3987-d51d6f67d02d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:08.125Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "cd56a6c8-50ce-2f5a-99df-3683197e1180",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:08.371Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "bd1c9c51-0e2a-8482-7147-3d1705d02ec8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:13.732Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "25735450-9417-6c34-2cfe-98368d37706d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:20.737Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "b2b6e40e-3a66-eee9-26ec-2c46344e72cd",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:22.415Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "e9290f07-c087-cd73-80bf-24a174bdb07c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:28.757Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "5eb76660-8f6c-9438-2894-c660cd700da5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:34.201Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "dab0a6b8-4cb9-93a9-5e8e-506705ab8c25",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:08.427Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "5f881098-f4be-56a8-23d3-2cddef78411b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:18.201Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "a341375a-b29c-f25c-ba45-a577c71a14de",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:26.935Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "bedad9c3-04e8-a26e-9d28-1503ffac2299",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:38.445Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "75371503-e577-0f5b-8dd4-82a5ad86e85d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:23.897Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "5a6ec22c-bfa1-0e78-b8b0-0c136312736a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:32.829Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "b54ac8fa-40d5-38ea-3ab9-6570d13a2319",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:44.940Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "86723694-9f3d-7f56-7696-2f7c61e48826",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:53.759Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "91272308-b7ef-f57a-960e-69364eb87bba",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:06.480Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "1c413953-fe4b-1df1-9de8-60b17e40545c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:14.737Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "eae31feb-c0ff-9918-f400-8a64df00cc8d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:25.902Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "7662b811-9e55-e310-6cc8-0cd3007459ef",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:00.024Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "4279e3d4-7d49-7b3c-24aa-1a42ea0c7f95",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:05.925Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "8b114de5-f493-e946-114f-cfed9bf9ccf7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:09.872Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "afd5b049-27b5-05af-04a1-3ac9255dc4b5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:15.829Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "11afa35f-80d3-1ad1-e75e-4fae73bd3339",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:19.904Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "24c6e238-dc8b-fdbb-c6e1-205b27f8f24b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:23.718Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "1f70dfd5-5ee9-42c8-6c28-6f05dc71850a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:02.647Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "cbf69a2c-afff-9fab-81ec-9a8539e5cf35",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:15.218Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "be558ea9-769d-28c6-9244-516f9acee014",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:25.943Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "1dd02188-662b-345d-591b-1efeab6cbbb9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:45.029Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "b1bdec9a-6bb6-a8dc-3111-beb15df9008d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:57.255Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "ac893687-2fd7-792a-cb94-f1fb7d7b6f5d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:06.058Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "becdb4de-2066-7561-b4eb-815cd0e4a977",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:16.890Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "c40925c9-ca66-f603-341b-d1280a686070",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:17.758Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "bb0b9af2-f6de-1f20-fa9f-a6037bfa6bca",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:26.056Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "9c1a58c5-9567-dcd8-40f6-3b1d151c73ca",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:35.388Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "a5648a8e-a827-adf4-acde-eb0373bcd6de",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:46.424Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-bd016_production(794bb1bb-2f8c-b22c-4ec0-c41b91757954)",
+          "object": "recommendation-service-5a8e2c1f4-bd016",
+          "node": "node-1",
+          "event_uid": "da496133-d786-a022-4ca2-df70d19de65a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:10.972Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "d24a9493-0082-14bb-3275-4cf7c5df0c17",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:19.794Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "60fb6f3f-3b1a-36fe-2bb8-17450af360c9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:29.021Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "9bb2c37a-5fc0-5281-758a-5eb06b40b887",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:39.410Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-e0556_production(d6827f19-03ef-64bc-66a8-211ef259caa4)",
+          "object": "recommendation-service-5a8e2c1f4-e0556",
+          "node": "node-4",
+          "event_uid": "b4de8124-450a-620d-c3ba-8687895a181d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:09.175Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "590bc1be-c8a8-5328-d3ce-53bf00f16724",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:18.115Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "0bd66ded-18bb-0b8e-196d-dc6b471f9663",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:27.431Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "e8307658-13f6-359a-5cf1-2d73297b93c4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:36.333Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-b35ff_production(cb8c2e08-ab05-c6b4-3f6f-f2403d6e7b98)",
+          "object": "recommendation-service-5a8e2c1f4-b35ff",
+          "node": "node-6",
+          "event_uid": "5960bcc8-5a5b-8df1-1b6c-2b27f062c7b8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:29.642Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "1bf20b87-df68-b78f-eb69-ebbbb3bfde89",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:40.666Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "ece25250-72f5-addd-4740-a6eef8eeed00",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:50.272Z",
+          "severity": "WARNING",
+          "reason": "BackOff",
+          "body": "Back-off restarting failed container recommendation in pod recommendation-service-5a8e2c1f4-ea1b0_production(d005e2f0-cba3-3e5d-91a0-3806edc41754)",
+          "object": "recommendation-service-5a8e2c1f4-ea1b0",
+          "node": "node-3",
+          "event_uid": "0e251718-2172-a364-62c1-7d2565d3306b",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "identity": {
+        "kind": "Pod",
+        "workload": "order-service",
+        "namespace": "production",
+        "reason": "Unhealthy",
+        "rule": "unhealthy/readiness"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "readiness probe failing; the pod is being kept out of service",
+        "meaning": "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
+        "fix": "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 3,
+        "pods": [
+          "order-service-9d3b4acc9-57544"
+        ],
+        "nodes": [
+          "node-6"
+        ],
+        "first_seen": "2024-06-01T10:17:02.562Z",
+        "last_seen": "2024-06-01T10:17:14.978Z",
+        "span": "12.416s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "count": 3,
+          "specific": true,
+          "means": "the connection was not refused, and no answer arrived inside the probe's timeout"
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:17:02.562Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.168:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "order-service-9d3b4acc9-57544",
+          "node": "node-6",
+          "event_uid": "4154e904-70b4-afdd-efa7-7dcc00e2bd26",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:10.131Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.168:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "order-service-9d3b4acc9-57544",
+          "node": "node-6",
+          "event_uid": "b5d4dab5-aee2-fb50-a6a0-3c24209b6adf",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:17:14.978Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.13.168:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "order-service-9d3b4acc9-57544",
+          "node": "node-6",
+          "event_uid": "59b9711b-29fc-c351-b3da-e3c20b22533e",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "identity": {
+        "kind": "Pod",
+        "workload": "inventory-service",
+        "namespace": "production",
+        "reason": "FailedMount",
+        "rule": "failed-mount"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "volume mount failed; a referenced configmap or secret is likely missing",
+        "meaning": "the pod is waiting for a configmap or secret that does not exist, so it cannot start until that config is created",
+        "fix": "create the missing configmap or secret, or fix its name in the pod spec"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "inventory-service-0c45289c2-9ab09"
+        ],
+        "nodes": [
+          "node-3"
+        ],
+        "first_seen": "2024-06-01T10:19:37.885Z",
+        "last_seen": "2024-06-01T10:19:37.885Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "MountVolume.SetUp failed for volume \"config\" : configmap \"inventory-service-config\" not found",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:19:37.885Z",
+          "severity": "WARNING",
+          "reason": "FailedMount",
+          "body": "MountVolume.SetUp failed for volume \"config\" : configmap \"inventory-service-config\" not found",
+          "object": "inventory-service-0c45289c2-9ab09",
+          "node": "node-3",
+          "event_uid": "5cc3b8dc-1c47-01a2-2956-90bad065a1e4",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

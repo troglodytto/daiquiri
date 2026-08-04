@@ -508,3 +508,57 @@ func deployFailure() triage.Result {
 		},
 	}
 }
+
+// TestTraceNarrowsAndMarks is the 3am path: you are paged for one service, and
+// what you need is the trail from your symptom back to its origin rather than
+// every incident in the cluster.
+func TestTraceNarrowsAndMarks(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Trace("payment-service").Render(deployFailure()))
+
+	out := buf.String()
+	assert.Contains(t, out, "TRACING payment-service")
+	assert.Contains(t, out, "YOU ARE HERE")
+	assert.Contains(t, out, "ROOT CAUSE", "the whole trail is still shown, not just the marked node")
+	assert.NotContains(t, out, "SEVERITY", "tracing implies the incident view")
+}
+
+// TestTraceAccountsForWhatItHid: a filtered report that does not say what it
+// filtered can mislead by omission.
+func TestTraceAccountsForWhatItHid(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Trace("payment-service").Render(deployFailure()))
+
+	assert.Contains(t, buf.String(), "showing 1 of 1 incident")
+}
+
+// TestTraceOnAWorkloadWithNoIncident says so plainly rather than rendering an
+// empty report that reads like a clean cluster.
+func TestTraceOnAWorkloadWithNoIncident(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Trace("some-other-service").Render(deployFailure()))
+
+	out := buf.String()
+	assert.Contains(t, out, "showing 0 of 1 incident")
+	assert.Contains(t, out, "no incident in this capture involves some-other-service")
+	assert.NotContains(t, out, "ROOT CAUSE")
+}
+
+// TestTraceMatchesAPodInstance, because the name on a page is often the pod.
+func TestTraceMatchesAPodInstance(t *testing.T) {
+	var buf bytes.Buffer
+	require.NoError(t, report.New(&buf).Trace("payment-service-9e3f1a2b8-005e2").Render(deployFailure()))
+
+	assert.Contains(t, buf.String(), "YOU ARE HERE")
+}
+
+// TestTraceIsEmphasisOnly holds the third badge to the same contract as the
+// other two.
+func TestTraceIsEmphasisOnly(t *testing.T) {
+	var plain, styled bytes.Buffer
+	require.NoError(t, report.New(&plain).Trace("payment-service").Render(deployFailure()))
+	require.NoError(t, report.NewStyled(&styled).Trace("payment-service").Render(deployFailure()))
+
+	require.Contains(t, styled.String(), string(esc))
+	assert.Equal(t, plain.String(), stripANSI(styled.String()))
+}

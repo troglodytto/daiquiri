@@ -35,6 +35,9 @@ func run(args []string, stderr io.Writer) int {
 	// should not have to know the tool had a second thing to show them.
 	tableOnly := flagSet.Bool("table", false,
 		"render only the prioritised summary table")
+	trace := flagSet.String("trace", "",
+		"narrow the incident view to one workload or pod and mark it -- the service "+
+			"you were paged for")
 	asJSON := flagSet.Bool("json", false,
 		"emit the whole run as JSON: every finding with its member records, causal "+
 			"edges, signatures, and the thresholds each verdict was decided by")
@@ -92,6 +95,12 @@ func run(args []string, stderr io.Writer) int {
 		renderer = renderer.Only(report.ViewTable)
 	case *treeOnly:
 		renderer = renderer.Only(report.ViewTree)
+	}
+
+	// Tracing implies the incident view: the table has no notion of a trail, so
+	// narrowing it to one workload would just hide rows.
+	if *trace != "" {
+		renderer = renderer.Only(report.ViewTree).Trace(*trace)
 	}
 
 	if err := renderer.Render(res); err != nil {

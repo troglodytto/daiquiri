@@ -1,0 +1,38 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,772 filtered as noise, 2 findings, 3 suppressed as background (146ms)
+
+TIME          SEVERITY  WORKLOAD          NAMESPACE   REASON             COUNT  PODS  WINDOW   NODES                 PATTERN
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:21:59.977  INFO      checkout-service  production  ScalingReplicaSet      1     -  instant  -                     -
+10:22:07.319  WARNING   checkout-service  production  Unhealthy            222     5  7m49s    node-2,node-3,node-5  deploy-correlated failure
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+━━ INCIDENT 1 of 1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ WARNING · explained ━━
+
+   ROOT CAUSE    rollout of checkout-service  at 10:21:59.977
+                 readiness probe failing; the pod is being kept out of service
+                 → the application is running but not answering its health check, so it
+                   is being kept out of the load balancer and serving no traffic
+                 │ Readiness probe failed: HTTP probe failed with statuscode: 404
+
+   IMPACT        222 events · 5 pods · 7m56s · STILL FAILING at capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ▸ 10:21:59.977  ScalingReplicaSet  checkout-service · production
+     ▪ Scaled up replica set checkout-service-7d4f8b9c5 to 5  1/1
+
+     ╰─ ● 10:22:07.319  Unhealthy  checkout-service · production  ×222 · 5 pods · 7m49s   PAGED HERE 
+           deploy-correlated failure  ·  every ~10.5s per pod
+           ▪ Readiness probe failed: HTTP probe failed with statuscode: 404  178/222
+             → the server answered the probe -- with a status saying this path is
+               not what it wants
+           ▪ Readiness probe failed: Get "http://<ip>:8080/healthcheck": dial tcp  24/222
+             <ip>:8080: connect: connection refused
+             → nothing was listening on that port when the probe fired
+             … 1 further signature not shown
+           ⤷ rollout created replica set checkout-service-7d4f8b9c5 7.3s earlier; all 5
+             affected pods belong to it
+
+   RECOMMENDED   confirm the probe path exists in the new image: kubectl rollout history deploy/checkout-service -n production
+
