@@ -2,6 +2,7 @@ package triage_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -340,4 +341,111 @@ func TestNodePressureIncidentIsOneTree(t *testing.T) {
 		namespaces[forest.Findings[c].Namespace] = true
 	}
 	assert.Len(t, namespaces, 3, "data, production and staging")
+}
+
+// TestForestInvariantsHoldOnEveryFixture verifies the structure itself rather
+// than any particular edge, and re-derives every edge's claim from the findings
+// without consulting the evidence string that asserts it.
+//
+// The point is to catch a forest that is internally consistent but wrong: an
+// edge whose evidence says "same pod X" when the two findings share no pod, or
+// a parent that is not actually earlier. Those would pass every expectation
+// written alongside the code, because they would be wrong in the same direction.
+func TestForestInvariantsHoldOnEveryFixture(t *testing.T) {
+	fixtures := []string{
+		"01-healthy.jsonl", "02-memory-leak.jsonl", "03-image-pull-failure.jsonl",
+		"04-test-a.jsonl", "05-test-b.jsonl", "06-test-c.jsonl",
+	}
+
+	for _, fx := range fixtures {
+		t.Run(fx, func(t *testing.T) {
+			f := run(t, fx).Forest
+
+			require.Len(t, f.Edges, len(f.Findings), "one edge per finding")
+
+			t.Run("structure", func(t *testing.T) {
+				childCount := make(map[int]int, len(f.Findings))
+				for i := range f.Findings {
+					for _, c := range f.Children(i) {
+						childCount[c]++
+					}
+				}
+
+				for i, e := range f.Edges {
+					if e.Parent == -1 {
+						assert.Zero(t, childCount[i], "a root must not also be someone's child")
+						continue
+					}
+
+					require.Less(t, e.Parent, i, "[%d] parent must be earlier in the slice", i)
+					require.GreaterOrEqual(t, e.Parent, 0, "[%d] parent index out of range", i)
+					assert.True(t, f.Findings[i].FirstSeen.After(f.Findings[e.Parent].FirstSeen),
+						"[%d] a cause must strictly precede its effect", i)
+					assert.Equal(t, 1, childCount[i], "[%d] a non-root is exactly one finding's child", i)
+
+					root := f.RootOf(i)
+					assert.Equal(t, -1, f.Edges[root].Parent, "RootOf(%d) must land on a root", i)
+				}
+			})
+
+			t.Run("evidence is true", func(t *testing.T) {
+				for i, e := range f.Edges {
+					if e.Parent == -1 {
+						continue
+					}
+
+					parent, child := f.Findings[e.Parent], f.Findings[i]
+
+					switch {
+					case strings.HasPrefix(e.Evidence, "same pod "):
+						shared := intersect(parent.Pods, child.Pods)
+						require.NotEmpty(t, shared, "[%d] claims a shared pod but shares none", i)
+						assert.Contains(t, e.Evidence, shared[0], "[%d] names a pod it does not share", i)
+
+					case strings.Contains(e.Evidence, " reported "):
+						assert.NotEmpty(t, intersect(parent.Nodes, child.Nodes),
+							"[%d] claims a node condition but shares no node", i)
+
+						condition := strings.TrimPrefix(parent.Reason, "NodeHas")
+						assert.True(t, anyBodyContains(child, "["+condition+"]"),
+							"[%d] claims the record names %q, but no record does", i, condition)
+
+					case strings.HasPrefix(e.Evidence, "rollout created "):
+						assert.Equal(t, classify.CategoryDeployMarker, parent.Category,
+							"[%d] claims a rollout parent that is not a deploy marker", i)
+						require.NotEmpty(t, child.Pods, "[%d] a rollout edge needs pods to check", i)
+
+						for _, pod := range child.Pods {
+							assert.True(t, strings.HasPrefix(pod, parent.Workload+"-"),
+								"[%d] pod %s does not belong to %s", i, pod, parent.Workload)
+						}
+
+					default:
+						t.Errorf("[%d] unrecognised evidence shape: %q", i, e.Evidence)
+					}
+				}
+			})
+		})
+	}
+}
+
+func intersect(a, b []string) []string {
+	var out []string
+	for _, x := range a {
+		for _, y := range b {
+			if x == y {
+				out = append(out, x)
+			}
+		}
+	}
+	return out
+}
+
+func anyBodyContains(f group.Finding, token string) bool {
+	for _, e := range f.Events {
+		if strings.Contains(e.Body, token) {
+			return true
+		}
+	}
+	return false
 }

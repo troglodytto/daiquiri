@@ -853,22 +853,49 @@ weak edges D-21 exists to prevent.
 
 **Status:** Accepted
 
-**Time.** `Build` is `O(R · n²)` — R = 3 rules outer, n findings scanned
-backwards. Worst case ≈ `3n²/2` comparisons.
+**Time and space — measured, not estimated.** `go test -bench . -benchmem`,
+Linux, 16 logical cores.
 
-| n (findings) | comparisons | wall clock |
-|---|---|---|
-| 10 (observed max) | ~150 | microseconds |
-| 1,000 | ~1.5M | a few ms |
-| 5,000 | ~37M | ~100ms |
+`link.Build`, findings synthesised in the shape of a real capture (a rollout
+followed by failures on its pods, so about half acquire a parent):
 
-`Roots` and `Children` are `O(n)`. `RootOf` is `O(depth)`; observed depth is 3,
-bounded by n. Rendering the whole forest is `O(n²)` through repeated `Children`
-calls, which could be one bucketing pass at `O(n)` if n ever justified it — it
-does not.
+| n (findings) | ns/op | B/op | allocs/op |
+|---|---|---|---|
+| **10** (the real working point) | 29,868 | 3,634 | 51 |
+| 100 | 1,411,987 | 130,530 | 1,561 |
+| 1,000 | 32,289,829 | 1,497,458 | 17,766 |
 
-**Space.** `O(n)` edges at ~32 bytes each. Ten findings ≈ **320 bytes**. The
-whole causal model of an incident fits in a cache line and a half.
+Read side, at n=1000: `Roots` 2,801 ns / 10 allocs; `RootOf` **2.3 ns**, zero
+allocations — an integer loop over a slice already in cache.
+
+Whole pipeline, capture read into memory and replayed from a `bytes.Reader` so
+disk is excluded:
+
+| fixture | ns/op | throughput | B/op | allocs/op |
+|---|---|---|---|---|
+| 01-healthy | 140,288,461 | 118 MB/s | 15,154,132 | 338,688 |
+| 04-test-a (heaviest, 227 reportable) | 138,623,705 | 120 MB/s | 15,368,683 | 339,221 |
+| 05-test-b | 140,015,896 | 118 MB/s | 15,163,105 | 338,797 |
+
+**~140 ms against the brief's 5-second budget: 35x headroom.** Allocation is
+~17 per record, dominated by JSON unmarshalling into the wire struct; at this
+margin there is nothing worth reclaiming.
+
+**Two corrections to what this entry originally claimed**, both from estimates
+that were never measured:
+
+- It said n=1,000 would be "a few ms". It is **32 ms** — roughly ten times
+  slower. Each comparison is a function call doing slice intersection and string
+  work, not a bare integer compare, and the estimate assumed the latter.
+- It extrapolated n=5,000 at "~100ms". Measured scaling puts it nearer 300 ms.
+  The figure is dropped rather than re-estimated; if that size ever matters it
+  should be measured.
+
+**The scaling is sub-quadratic in practice.** Ten times the findings costs 47x
+then 23x, not the 100x a true `O(n²)` would. The backwards scan stops at the
+first match and most findings find a parent within a few steps, so the inner
+loop rarely runs to completion. The worst case remains quadratic; the observed
+case is not.
 
 **Why n stays small.** n counts *findings*, not records. Findings grow with the
 number of distinct `(workload, namespace, reason, rule)` tuples — that is,
