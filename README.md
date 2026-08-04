@@ -42,6 +42,7 @@ usage: triage [flags] <filename.jsonl>
 flags:
   -table   render only the prioritised summary table
   -tree    render only the causal incident view
+  -json    emit the whole run as JSON
 ```
 
 **With no flags you get both**, in the order you need them: the table is the
@@ -59,8 +60,78 @@ causal trail on its own. Passing both is an error rather than a silent no-op.
 ./daiquiri -tree  testdata/05-test-b.jsonl > analysis/05.txt   # plain text, no escapes
 ```
 
+`-json` replaces the human views rather than adding to them, so the output pipes
+straight into `jq`. Combining it with `-table` or `-tree` is an error.
+
 Exit codes: `0` success, `1` the file could not be read or decoded, `2` bad
 usage.
+
+## JSON output
+
+`-json` is built for one purpose: **letting you disagree with the tool.** Every
+verdict sits next to the inputs that produced it, so nothing has to be taken on
+trust.
+
+```sh
+./daiquiri -json testdata/03-image-pull-failure.jsonl > run.json
+```
+
+```jsonc
+{
+  "schema": 1,
+  "tool": {
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture":   { "records_ingested": 20000, "records_skipped": 0, ... },
+  "incidents": [ { "root": 3, "mechanism": 4, "paged": 5, "members": [3,4,5], ... } ],
+  "findings":  [ { "index": 0, "identity": {...}, "verdict": {...}, "shape": {...},
+                   "diagnosis": {...}, "signatures": [...], "edge": {...},
+                   "records": [ ...every member record, verbatim... ] } ]
+}
+```
+
+What that buys you:
+
+- **Every count is recomputable.** `shape.occurrences` sits beside the records it
+  was counted from, so you can check it rather than believe it.
+- **Every threshold is visible.** The numbers that decided each verdict travel
+  with the verdicts.
+- **Every suppression is explained.** `diagnosis.because` publishes each clause
+  separately, so you can see which one decided it:
+
+  ```json
+  "because": {
+    "is_a_recognised_failure": true,
+    "is_small_on_every_axis":  true,
+    "nothing_explains_it":     true,
+    "it_explains_nothing":     true
+  }
+  ```
+
+- **Suppressed findings are included**, flagged. Excluding them would make the
+  document agree with the tool by construction.
+- **`paged` is `null`** when several symptoms are equally bad. A number there
+  would be a fabrication.
+
+Incidents index into `findings` rather than nesting them, so no finding is
+duplicated and you can walk either structure:
+
+```sh
+jq '.findings[] | select(.diagnosis.suppressed) | .identity'          run.json
+jq '.incidents[0] as $i | .findings[$i.mechanism].signatures'         run.json
+jq '.findings[] | select(.edge) | {from: .edge.parent, why: .edge.evidence}' run.json
+```
+
+Lifecycle noise is counted but not reproduced — it is ~19,800 of 20,000 records
+and already in the input file. Everything the tool *concluded* is in the
+document; everything it *read* is in the file it read. Output runs 7 KB to
+100 KB against a 16 MB input.
 
 ## What the output means
 

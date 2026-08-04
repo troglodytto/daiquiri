@@ -70,6 +70,10 @@ import (
 // corpus and therefore overfitted to it.
 const window = 300 * time.Second
 
+// Window reports the causal window in force, so output that asserts an edge can
+// also state the bound that permitted it.
+func Window() time.Duration { return window }
+
 // noParent marks a finding nothing explains.
 const noParent = -1
 

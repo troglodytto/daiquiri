@@ -1610,6 +1610,86 @@ observation stopped.
 
 ---
 
+### D-55 — The JSON is the audit trail, not a second summary
+
+**Status:** Accepted
+
+`--json` emits a document whose organising principle is that **every verdict
+sits next to the inputs that produced it**. A conclusion on its own is something
+you have to trust; a conclusion beside its evidence and the thresholds that were
+applied is something you can check — and disagree with — using nothing but the
+file.
+
+Concretely, each finding carries:
+
+| | Why it is there |
+|---|---|
+| the coalescing identity | why these records are one fact rather than several |
+| **every member record, verbatim** | so every count and time range is *recomputable*, not merely asserted |
+| the causal edge, with its rule and evidence | so an asserted link can be checked against the capture |
+| the diagnosis, **with each suppression clause separately** | so "suppressed: true" can be traced to which clause decided it |
+
+And the document header carries the causal window and every threshold, because
+**a threshold nobody can see is a threshold nobody can challenge.**
+
+**Suppressed findings are included, flagged.** Excluding them would make the
+document agree with the tool by construction, which is the opposite of the
+point: the first thing a sceptical reader wants is the list of things that were
+held back.
+
+**Lifecycle noise is counted but not reproduced.** It is ~19,800 of 20,000
+records, it is already in the input file byte for byte, and duplicating it would
+make the document larger than its own source while adding nothing the source
+does not hold. The rule drawn: *everything the tool concluded is here;
+everything it read is in the file it read.* Sizes with that rule: 7.5 KB
+(01-healthy) to 102 KB (04-test-a), against a 16 MB input.
+
+**Rejected: nesting findings inside incidents.** It reads better and duplicates
+every finding that belongs to a tree. Incidents index into `findings` instead,
+so there is exactly one copy of each and a consumer can walk either structure.
+
+**Rejected: emitting durations as nanosecond integers.** `60000000000` is a
+number a reader has to decode; `"1m0s"` is one they can act on. This document is
+read by a person writing an analysis report at least as often as by a program.
+
+**On ownership:** `diagnose.Config` and `diagnose.Suppression` carry no struct
+tags. How a verdict is spelled on a wire is the renderer's business, and a tag
+in a diagnosis stage would make that stage own a file format. `report` maps them
+into its own wire types.
+
+---
+
+### D-56 — A verdict is derived from its reasons, never stored beside them
+
+**Status:** Accepted — found by the test written for D-55
+
+`Diagnosis` held both `Suppressed bool` and the four clauses behind it. Writing
+the JSON test that asserts *"the published outcome must follow from the
+published clauses"* immediately failed — on the test fixtures, which set the
+outcome and left the clauses zeroed.
+
+That is a fixture bug and a design bug. Two fields that must agree, and which
+nothing forces to agree, will eventually disagree — and here the disagreement
+would be published as an audit trail, which is worse than not publishing one.
+
+`Suppressed` is now a method:
+
+```go
+func (d Diagnosis) Suppressed() bool { return d.Because.holds() }
+```
+
+There is exactly one place that says what suppression means, it reads the four
+values the document publishes, and a hand-built chart can no longer claim an
+outcome its own reasons contradict.
+
+**The general rule this is an instance of:** where a value and its justification
+are both exported, derive the value. A stored conclusion is a second source of
+truth, and the audit trail is only worth anything if it cannot be inconsistent
+with the thing it audits.
+
+---
+
+
 ## Open
 
 ### O-01 — Package layout

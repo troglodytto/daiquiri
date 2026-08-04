@@ -163,6 +163,54 @@ func (c Confidence) String() string {
 	}
 }
 
+// Suppression records how each clause of the suppression predicate evaluated.
+//
+// Carried rather than discarded so a verdict can be audited instead of trusted.
+// "Suppressed: true" is a conclusion; these four are the reasons, and a reader
+// who disagrees with the outcome can see exactly which clause they disagree
+// with. It is what makes the JSON output something you can argue with.
+type Suppression struct {
+	// Diagnosable is whether this is a recognised failure at all. False for a
+	// deploy marker and for any reason the taxonomy could not read.
+	Diagnosable bool
+
+	// Transient is whether the finding is small on count, pods and span.
+	Transient bool
+
+	// Root is whether nothing in the capture explains it.
+	Root bool
+
+	// Childless is whether it explains nothing.
+	Childless bool
+}
+
+// Config reports the thresholds this stage applied.
+//
+// Exposed so output can carry the numbers behind its verdicts: a threshold
+// nobody can see is a threshold nobody can challenge, and every one of these was
+// derived from the corpus rather than chosen -- see docs/decisions.md D-43 and
+// D-54.
+//
+// Deliberately untagged. How these are spelled on a wire is the renderer's
+// business, not this stage's, and a serialisation tag here would make a
+// diagnosis stage own a file format.
+type Config struct {
+	TransientCount     int
+	TransientPods      int
+	TransientSpan      time.Duration
+	StillFailingWithin time.Duration
+}
+
+// Settings returns the thresholds in force.
+func Settings() Config {
+	return Config{
+		TransientCount:     transientCount,
+		TransientPods:      transientPods,
+		TransientSpan:      transientSpan,
+		StillFailingWithin: stillFailingWithin,
+	}
+}
+
 // Diagnosis is the verdict on one finding.
 type Diagnosis struct {
 	// Pattern is the failure's category, or PatternNone where naming one would
@@ -173,9 +221,12 @@ type Diagnosis struct {
 	// explained as the thing that explains it.
 	Confidence Confidence
 
-	// Suppressed marks background noise the report should not lead with. The
-	// finding is still present and still counted -- see the package prohibition.
-	Suppressed bool
+	// Because records how each clause of the suppression predicate evaluated.
+	//
+	// The outcome is not stored alongside it. Suppressed is derived from these
+	// four, so a diagnosis cannot state a verdict its own reasons contradict --
+	// which a hand-built chart otherwise can, and did.
+	Because Suppression
 
 	// Signatures are the distinct things the finding's records say, ranked most
 	// informative first. This is the "why" the pattern alone cannot give: 222
@@ -183,6 +234,11 @@ type Diagnosis struct {
 	// "HTTP probe failed with statuscode: 404".
 	Signatures []Signature
 }
+
+// Suppressed reports whether this finding is background the report should not
+// lead with. The finding is still present and still counted -- see the package
+// prohibition.
+func (d Diagnosis) Suppressed() bool { return d.Because.holds() }
 
 // Leading returns the most informative signature, if there is one.
 func (d Diagnosis) Leading() (Signature, bool) {
@@ -226,7 +282,7 @@ func Build(f link.Forest, captureEnd time.Time) Chart {
 		c.Diagnoses[i] = Diagnosis{
 			Pattern:    c.patternOf(i),
 			Confidence: c.confidenceOf(i),
-			Suppressed: c.suppressed(i),
+			Because:    c.suppressionOf(i),
 			Signatures: signaturesOf(f.Findings[i]),
 		}
 	}
@@ -239,7 +295,7 @@ func (c Chart) Reported() []int {
 	out := make([]int, 0, len(c.Diagnoses))
 
 	for i := range c.Diagnoses {
-		if !c.Diagnoses[i].Suppressed {
+		if !c.Diagnoses[i].Suppressed() {
 			out = append(out, i)
 		}
 	}
@@ -406,9 +462,17 @@ func (c Chart) confidenceOf(i int) Confidence {
 	return ConfidenceUnexplained
 }
 
-// suppressed reports whether finding i is background the report should not lead
-// with.
-func (c Chart) suppressed(i int) bool {
+// holds reports whether every clause of the predicate is satisfied.
+//
+// One method rather than a repeated conjunction, so the decision and its record
+// cannot drift apart: there is exactly one place that says what "suppressed"
+// means, and it reads the same four values the output publishes.
+func (s Suppression) holds() bool {
+	return s.Diagnosable && s.Transient && s.Root && s.Childless
+}
+
+// suppressionOf evaluates each clause for finding i.
+func (c Chart) suppressionOf(i int) Suppression {
 	// Recognised failures only, and for two different reasons.
 	//
 	// A deploy marker with no children is a rollout that broke nothing, which is
@@ -422,17 +486,16 @@ func (c Chart) suppressed(i int) bool {
 	// we'd much rather surface it, instead of burying it." It is transient,
 	// unexplained and childless on every measure, and burying it on shape would
 	// answer that record by doing exactly what it asks us not to.
-	if !diagnosable(c.Findings[i]) {
-		return false
-	}
-
 	// Small, explained by nothing, and explaining nothing. The last clause is
 	// load-bearing: without it 05-test-b's node condition -- one occurrence, no
 	// pods, zero span -- is suppressed, and the six evictions hanging off it go
 	// with it.
-	return transient(c.Findings[i]) &&
-		c.IsRoot(i) &&
-		len(c.Children(i)) == 0
+	return Suppression{
+		Diagnosable: diagnosable(c.Findings[i]),
+		Transient:   transient(c.Findings[i]),
+		Root:        c.IsRoot(i),
+		Childless:   len(c.Children(i)) == 0,
+	}
 }
 
 // diagnosable reports whether this stage may reach a verdict about a finding at

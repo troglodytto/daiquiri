@@ -1,0 +1,649 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "daiquiri",
+    "version": "v1.2.3",
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture": {
+    "cluster": "prod-us-east-1",
+    "records_ingested": 20000,
+    "records_skipped": 0,
+    "records_filtered_as_noise": 19952,
+    "records_unrecognised": 0,
+    "observation_end": "2024-06-01T10:29:59.677Z",
+    "elapsed_ms": 133
+  },
+  "incidents": [
+    {
+      "severity": "CRITICAL",
+      "confidence": "explained",
+      "root": 0,
+      "mechanism": 1,
+      "paged": 2,
+      "members": [
+        0,
+        1,
+        2
+      ],
+      "events": 42,
+      "pods": 3,
+      "workloads": 1,
+      "namespaces": 1,
+      "first_seen": "2024-06-01T10:17:59.977Z",
+      "last_seen": "2024-06-01T10:28:19.001Z",
+      "span": "10m19.024s",
+      "still_failing": true,
+      "remediation": "confirm the tag exists, then roll back: kubectl rollout undo deploy/payment-service -n production"
+    }
+  ],
+  "findings": [
+    {
+      "index": 0,
+      "identity": {
+        "kind": "Deployment",
+        "workload": "payment-service",
+        "namespace": "production",
+        "reason": "ScalingReplicaSet",
+        "rule": "deploy/scaled"
+      },
+      "verdict": {
+        "category": "DEPLOY",
+        "severity": "INFO",
+        "recognised": true
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [],
+        "nodes": [],
+        "first_seen": "2024-06-01T10:17:59.977Z",
+        "last_seen": "2024-06-01T10:17:59.977Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": false,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Scaled up replica set payment-service-9e3f1a2b8 to 3",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:17:59.977Z",
+          "severity": "INFO",
+          "reason": "ScalingReplicaSet",
+          "body": "Scaled up replica set payment-service-9e3f1a2b8 to 3",
+          "object": "payment-service",
+          "event_uid": "payment-scale",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "identity": {
+        "kind": "Pod",
+        "workload": "payment-service",
+        "namespace": "production",
+        "reason": "Failed",
+        "rule": ""
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "image pull failed; the tag or registry credentials are likely wrong",
+        "meaning": "the image this deployment asks for does not exist where it is looking -- most often a tag that was never pushed, or a typo in the version",
+        "fix": "confirm the tag exists, then roll back: kubectl rollout undo deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 24,
+        "pods": [
+          "payment-service-9e3f1a2b8-005e2",
+          "payment-service-9e3f1a2b8-7f871",
+          "payment-service-9e3f1a2b8-c257b"
+        ],
+        "nodes": [
+          "node-2",
+          "node-3"
+        ],
+        "first_seen": "2024-06-01T10:18:04.412Z",
+        "last_seen": "2024-06-01T10:28:19.001Z",
+        "span": "10m14.589s"
+      },
+      "diagnosis": {
+        "pattern": "deploy-correlated failure",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": false,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Failed to pull image \"registry.internal/payment-service:v2.14.0-rc3\": rpc error: code = NotFound desc = manifest not found",
+          "count": 3,
+          "specific": true
+        },
+        {
+          "text": "Error: ImagePullBackOff",
+          "count": 18,
+          "specific": false
+        },
+        {
+          "text": "Error: ErrImagePull",
+          "count": 3,
+          "specific": false
+        }
+      ],
+      "edge": {
+        "parent": 0,
+        "kind": "caused",
+        "rule": "rollout-replicaset",
+        "evidence": "rollout created replica set payment-service-9e3f1a2b8 4.4s earlier; all 3 affected pods belong to it",
+        "delay": "4.435s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:18:04.412Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:31.133Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:57.854Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:24.575Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:51.297Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:18.018Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:44.739Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:11.460Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:38.182Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:04.903Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:31.624Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-10",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:58.345Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-11",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:25.067Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-12",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:51.788Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-13",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:18.509Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-14",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:45.230Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-15",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:11.952Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-16",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:38.673Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-17",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:05.394Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-18",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:32.115Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-19",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:58.837Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-20",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:25.558Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-21",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:52.279Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-Failed-22",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:19.000Z",
+          "severity": "CRITICAL",
+          "reason": "Failed",
+          "body": "Failed on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-Failed-23",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "kind": "Pod",
+        "workload": "payment-service",
+        "namespace": "production",
+        "reason": "BackOff",
+        "rule": ""
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "cause for BackOff"
+      },
+      "shape": {
+        "occurrences": 18,
+        "pods": [
+          "payment-service-9e3f1a2b8-005e2",
+          "payment-service-9e3f1a2b8-7f871",
+          "payment-service-9e3f1a2b8-c257b"
+        ],
+        "nodes": [
+          "node-2",
+          "node-3"
+        ],
+        "first_seen": "2024-06-01T10:18:14.858Z",
+        "last_seen": "2024-06-01T10:28:18.900Z",
+        "span": "10m4.042s"
+      },
+      "diagnosis": {
+        "pattern": "deploy-correlated failure",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": false,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "count": 18,
+          "specific": true
+        }
+      ],
+      "edge": {
+        "parent": 1,
+        "kind": "caused",
+        "rule": "same-pod",
+        "evidence": "same pod payment-service-9e3f1a2b8-005e2, 10.4s after Failed",
+        "delay": "10.446s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:18:14.858Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:50.389Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-1",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:25.921Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:01.453Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:36.985Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:12.517Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:21:48.049Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:23.581Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:22:59.113Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:34.644Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:10.176Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-10",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:24:45.708Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-11",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:21.240Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-12",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:25:56.772Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-13",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:26:32.304Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-14",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:07.836Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-005e2",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-15",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:27:43.368Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-7f871",
+          "object": "payment-service-9e3f1a2b8-7f871",
+          "node": "node-2",
+          "event_uid": "payment-service-BackOff-16",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:18.899Z",
+          "severity": "CRITICAL",
+          "reason": "BackOff",
+          "body": "BackOff on payment-service-9e3f1a2b8-c257b",
+          "object": "payment-service-9e3f1a2b8-c257b",
+          "node": "node-3",
+          "event_uid": "payment-service-BackOff-17",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
