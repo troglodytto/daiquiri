@@ -147,13 +147,13 @@ func (r *Renderer) Render(res triage.Result) error {
 
 	r.writeHeader(&b, res)
 
-	if len(res.Findings) == 0 {
+	if len(res.Forest.Findings) == 0 {
 		b.WriteString("\nno issues detected\n")
 		_, err := io.WriteString(r.w, b.String())
 		return err
 	}
 
-	r.writeTable(&b, res.Findings)
+	r.writeTable(&b, res.Forest.Findings)
 
 	_, err := io.WriteString(r.w, b.String())
 
@@ -174,7 +174,7 @@ func (r *Renderer) writeHeader(b *strings.Builder, res triage.Result) {
 	fmt.Fprintln(b, r.paint(r.style.header, title))
 
 	meta := fmt.Sprintf("%s records, %s filtered as noise, %d findings",
-		commas(res.Ingested), commas(res.Noise), len(res.Findings))
+		commas(res.Ingested), commas(res.Noise), len(res.Forest.Findings))
 
 	if res.Skipped > 0 {
 		meta += fmt.Sprintf(", skipped %d", res.Skipped)

@@ -663,6 +663,264 @@ colour, which is easy to misread.
 
 ---
 
+## Causality (Step 3)
+
+### D-31 — The causal structure is a parent-array forest over findings
+
+**Status:** Accepted — un-parks D-18, narrows D-17
+
+```go
+type Forest struct {
+    Findings []group.Finding // ascending by FirstSeen
+    Edges    []Edge          // parallel; Edges[i] describes Findings[i]
+}
+type Edge struct { Parent int; Kind Kind; Evidence string }
+```
+
+One `int` per finding. `Parent == -1` is a root.
+
+**Invariant:** `Edges[i].Parent < i`, because `Build` only scans backwards from
+`i`. Everything safety-related falls out of it — cycles are structurally
+impossible (no visited set, no cycle check, no error path), `Findings` is
+already a topological order because sorting by time *is* the topological sort,
+and `Children(i)` need only scan forward from `i+1`.
+
+**Grain: finding→finding, not finding→record.** D-18 was parked as superseded by
+D-17's trail-on-demand; the simulation showed it was the right shape at the
+wrong grain. Both now survive at different jobs — the forest is the causal
+structure, and raw-record queries remain the *evidence* mechanism for quoting
+things like 02's 4m41s leak interval.
+
+**Why `Forest` wraps both slices** rather than `Build` returning a bare
+`[]Edge`: the two are index-coupled, and handing them back separately makes
+"same length, same order" an unenforced convention that one misplaced
+`sort.Slice` breaks silently. The failure mode would be a *wrong diagnosis*, not
+a crash. Only `Build` constructs the pair.
+
+---
+
+### D-32 — Rule priority is dimension specificity: pod > node > workload
+
+**Status:** Accepted
+
+Rule priority is the outer loop, time proximity the inner (D-22).
+
+**The fight:** the alternative was ordering by *parent kind* — cause-shaped
+parents (deploy markers, node conditions) before symptom parents. It loses 03's
+depth. `BackOff`[image-pull-retry] matches both the same-pod rule (against
+`Failed`) and the deploy rule (against `ScalingReplicaSet`). Under specificity
+ordering the chain is three deep:
+
+```
+ScalingReplicaSet → Failed[image-pull] → BackOff[retry]
+```
+
+Under kind ordering it flattens to two siblings under the deploy, losing the
+claim that the retry is caused by the pull failure rather than by the rollout.
+
+**Known limitation, recorded not hidden:** the same-pod rule links to *any*
+earlier finding sharing a pod, so an unrelated earlier symptom on that pod could
+become its parent. Checked against the corpus and it does not occur — 05's
+`batch-reporter` Unhealthy (pod `19cb12bab-7143a`) and its eviction (pod
+`820090759-b420b`) are different instances, so the node-condition rule correctly
+wins. Guarding it needs a reason-precedence table, which is inflation for a case
+with no evidence behind it.
+
+---
+
+### D-33 — A single 300-second window, derived from the data
+
+**Status:** Accepted — closes O-03
+
+Measured across all six captures:
+
+| | value |
+|---|---|
+| every true edge | +4.4, +4.7, +7.3, +7.4, +10.4, +15.4, +25.8, +48.7, +85.4, +88.6, **+97.9s** |
+| nearest false candidate | 06's `LALALALA`, **+600s** after the data-pipeline rollout |
+
+Any window in **(98s, 600s)** produces identical results. 300s sits mid-gap —
+3× the largest true edge, half the smallest false one.
+
+**One constant, not three.** Per-rule windows would be tunable to the corpus and
+therefore overfitted to it; a single number with a stated margin is honest about
+how much evidence actually backs it.
+
+---
+
+### D-34 — Roots are classified by what they are, not by when they are
+
+**Status:** Accepted — supersedes D-27's time-based truncation test
+
+| Root | Meaning | Fires on |
+|---|---|---|
+| deploy marker or node condition | **explained** — a cause was reached | 03, 04, 05, 06 |
+| a failure *with* children | **partially explained** — proximate cause found, nothing upstream | 02 (`OOMKilling`) |
+| a failure with *no* children | **unexplained** | 01's three, and every background finding |
+
+**Why it beats D-27:** that version tested whether the root sat within seconds of
+the capture start. 02's first `OOMKilling` is 156s in — not "seconds" — so the
+heuristic would have mis-called it, and it needed a threshold nothing justified.
+This version needs **no threshold at all** and produces the honest sentence
+directly: *"the crash-loop is explained by OOM kills; what drove the memory
+growth is not in this capture."*
+
+"Unexplained + transient" is also exactly the suppression predicate Step 4 needs
+to silence `01-healthy` without deleting 05.
+
+---
+
+### D-35 — An edge must be provable from record text or object identity
+
+**Status:** Accepted — strengthens D-21
+
+Co-occurrence is never sufficient. Every rule must point at something a human
+can read in the data:
+
+| Rule | Proof | Strength |
+|---|---|---|
+| same pod | **identity** — same `k8s.object.name` | inferred (adjacency) |
+| node condition | **named** — `NodeHas<X>` ↔ child body contains `[<X>]` | stated |
+| deploy marker | **named** — deploy body gives `<workload>-<hash>`; child pods are `<that>-<suffix>` | stated |
+
+**Evidence, 05-test-b:**
+
+```
+10:15:00.000  node-4  NodeHasDiskPressure  "Node node-4 status is now: NodeHasDiskPressure"
+10:15:15.359  node-4  Evicted              "The node had condition: [DiskPressure]."   ×10
+10:02:32.345  node-2  Evicted              "The node was low on resource: memory. ..."  ← control
+```
+
+The evicted pod's own record names the condition that evicted it. The node-2
+eviction is the control that proves the rule discriminates: same `Evicted`
+reason, different named cause, correctly unlinked — and it would still be
+rejected even if it were on node-4.
+
+**Why this matters beyond correctness:** the brief asks for *"Evidence: which
+events from your tool's output led you there? Quote specific findings."* A
+stated-cause edge yields a verbatim quote. A co-occurrence edge yields a
+hand-wave.
+
+**Honest asymmetry:** the same-pod rule is the *weakest* of the three, not the
+strongest. `OOMKilling → BackOff` is identity plus adjacency — the `BackOff`
+body says "Back-off restarting failed container" and never names the OOM. It
+still outranks the others for the depth reason in D-32, but the difference is
+real and must flow into the confidence Step 4 reports.
+
+---
+
+### D-36 — The deploy rule keys on the named ReplicaSet, not the workload
+
+**Status:** Accepted — supersedes the same-workload rule specified earlier in this pass
+
+The deploy body names the exact ReplicaSet it scaled. Failing pods must belong
+to **that** ReplicaSet, not merely to the same service.
+
+```
+03: "Scaled up replica set payment-service-9e3f1a2b8 to 3"
+    failing:    payment-service-9e3f1a2b8-{005e2,45cbb,b8c2e}      3/3 from that RS
+    background: auth-service-df386e8ed-…, data-pipeline-c7a123947-…  different RS
+04: 5/5 from checkout-service-7d4f8b9c5        06: 6/6 from data-pipeline-3c7d2e1a9
+```
+
+**Why:** "same workload" links a service that merely *happened* to be deployed
+recently. "Pods from the ReplicaSet this rollout created" is the actual causal
+claim, and it is the difference between *"the deploy caused this"* and *"this
+service was deployed at some point"*.
+
+---
+
+### D-37 — Two edge tiers, not a confidence score
+
+**Status:** Accepted
+
+`Caused` — the record text names the link, or it is the same object.
+`MayRelate` — a shared dimension inside the window, with nothing in the text
+connecting them.
+
+**Why not a numeric score:** a score is a model, and a model needs calibration
+data that does not exist here. Two tiers are each defensible from the rule that
+fired.
+
+**The tier is empty on this corpus, and stays empty.** Nothing sits on node-4 in
+05 but the condition and its ten evictions, and every deploy edge is textually
+provable. Loosening a rule to populate the tier would manufacture exactly the
+weak edges D-21 exists to prevent.
+
+---
+
+### D-38 — Complexity, scale, and why no graph library
+
+**Status:** Accepted
+
+**Time.** `Build` is `O(R · n²)` — R = 3 rules outer, n findings scanned
+backwards. Worst case ≈ `3n²/2` comparisons.
+
+| n (findings) | comparisons | wall clock |
+|---|---|---|
+| 10 (observed max) | ~150 | microseconds |
+| 1,000 | ~1.5M | a few ms |
+| 5,000 | ~37M | ~100ms |
+
+`Roots` and `Children` are `O(n)`. `RootOf` is `O(depth)`; observed depth is 3,
+bounded by n. Rendering the whole forest is `O(n²)` through repeated `Children`
+calls, which could be one bucketing pass at `O(n)` if n ever justified it — it
+does not.
+
+**Space.** `O(n)` edges at ~32 bytes each. Ten findings ≈ **320 bytes**. The
+whole causal model of an incident fits in a cache line and a half.
+
+**Why n stays small.** n counts *findings*, not records. Findings grow with the
+number of distinct `(workload, namespace, reason, rule)` tuples — that is,
+distinct failure modes — not with event volume. A cluster emitting ten times the
+events has roughly the same number of distinct failure modes. Observed: 20,000
+records → 3–10 findings. The quadratic term is over a quantity that does not
+track input size.
+
+**Why overlap-based structures are wrong, not merely unnecessary.** Interval
+trees and sweep lines answer "which intervals overlap". Measured against the
+corpus, that is the wrong question in both directions:
+
+| Quadrant | Corpus example | Overlap-based verdict |
+|---|---|---|
+| overlapping, **unrelated** | 02: `order-service/Unhealthy` 10:17:02–14 on node-6 sits **inside** `OOMKilling` 10:02:37–10:28:20 which spans node-6 | false positive |
+| overlapping, related | 02 `OOMKilling`/`BackOff`; 03 `Failed`/`BackOff` | correct |
+| **non-overlapping, related** | every deploy edge and the whole 05 incident — causes are *instants*, effects begin after, **zero overlap** | **all missed** |
+| non-overlapping, unrelated | the background floor | correct |
+
+Overlap would miss the four best diagnoses in the corpus and invent a link
+between a memory leak and an unrelated readiness probe. The real criterion is
+**ordering plus a named shared dimension**, and ordering is one scalar
+comparison — which is precisely why a sorted slice suffices.
+
+**Time enters in exactly two places, never as a proposer:** as ordering (a
+parent must be strictly earlier, which is also what makes cycles impossible),
+and as a veto window that can only reject a candidate a dimension already
+proposed.
+
+**Why not union-find.** Its physical form is the same `parent []int`. Both of
+its optimisations disqualify it: path compression repoints each node at its root
+and deletes the intermediate hops, which *are the product*; union by rank picks
+whichever parent balances the tree, when the requirement is the parent that is
+true. Stripped of both it is just this forest, and at n ≤ 10 there is nothing
+left for the algorithm to contribute.
+
+**The one case union-find shape would address, named as the boundary:** an
+undirected merge — *"these are one incident but the cause is not in the data."*
+If 05's capture had begun at 10:15:10 the `NodeHasDiskPressure` record would be
+absent, leaving six orphan evictions all naming `[DiskPressure]` on node-4:
+obviously one incident, six roots. Cost to handle: ~20 lines grouping orphans by
+(stated cause, shared dimension) under a synthetic root — **a map, not a
+library**. Does not occur in this corpus; Step 2's workload rollup already
+merges the within-workload version. Deferred, not forgotten.
+
+**What would force a real graph:** multiple parents (joint causation — D-19, no
+fixture has it), cycles (impossible when parents are strictly earlier),
+reachability or shortest-path at scale (n ≤ 10), or incremental update as
+records stream (this is a batch tool that reads a file and exits). None apply.
+
+---
+
 ## Open
 
 ### O-01 — Package layout
@@ -679,7 +937,7 @@ deploy-correlated / capacity / node-issue. Each must be a named constant with
 its derivation recorded (`engineering-standards.md` §3.2: _"numbers are never
 magic"_).
 
-### O-03 — Deploy-correlation window
+### O-03 — Deploy-correlation window  *(CLOSED by D-33)*
 
 D-17's `window` parameter. Observed deploy→first-symptom deltas: 03 = 4.4s,
 04 = 7.3s, 06 = 4.7s. All under 10 seconds, which suggests a generous window is

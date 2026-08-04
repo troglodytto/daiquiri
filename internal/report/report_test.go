@@ -15,6 +15,7 @@ import (
 	"github.com/troglodytto/daiquiri/internal/classify"
 	"github.com/troglodytto/daiquiri/internal/event"
 	"github.com/troglodytto/daiquiri/internal/group"
+	"github.com/troglodytto/daiquiri/internal/link"
 	"github.com/troglodytto/daiquiri/internal/report"
 	"github.com/troglodytto/daiquiri/internal/triage"
 )
@@ -52,7 +53,7 @@ func nodePressure() triage.Result {
 	return triage.Result{
 		Ingested: 20000, Noise: 19984, Cluster: "prod-us-east-1",
 		Elapsed: 131 * time.Millisecond,
-		Findings: []group.Finding{
+		Forest: link.Forest{Findings: []group.Finding{
 			finding(event.SeverityWarning, "batch-reporter", "data", "Unhealthy", 3,
 				[]string{"batch-reporter-19cb12bab-7143a"}, []string{"node-5"}, at("10:01:29.089"), at("10:01:44.735")),
 			finding(event.SeverityCritical, "node-4", "default", "NodeHasDiskPressure", 1,
@@ -61,7 +62,7 @@ func nodePressure() triage.Result {
 				[]string{"a", "b", "c"}, []string{"node-4"}, at("10:15:25.779"), at("10:19:56.562")),
 			finding(event.SeverityInfo, "data-pipeline", "data", "FailedScheduling", 177,
 				[]string{"a", "b", "c", "d", "e", "f"}, nil, at("10:20:04.679"), at("10:29:59.677")),
-		},
+		}},
 	}
 }
 
@@ -136,7 +137,7 @@ func TestRenderDisclosesSkippedAndUnrecognised(t *testing.T) {
 // than its column, which would push every following column out of alignment.
 func TestColumnsFitTheirContent(t *testing.T) {
 	res := nodePressure()
-	res.Findings[0].Workload = "a-workload-with-a-very-long-name-indeed"
+	res.Forest.Findings[0].Workload = "a-workload-with-a-very-long-name-indeed"
 
 	var buf bytes.Buffer
 	require.NoError(t, report.New(&buf).Render(res))
@@ -158,7 +159,7 @@ func TestColumnsFitTheirContent(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, len(res.Findings), rows, "every finding must have produced a row")
+	assert.Equal(t, len(res.Forest.Findings), rows, "every finding must have produced a row")
 }
 
 func columnOffset(t *testing.T, lines []string, heading string) int {

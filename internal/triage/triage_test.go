@@ -36,7 +36,7 @@ func find(t *testing.T, res triage.Result, workload, reason string) group.Findin
 	t.Helper()
 
 	var hits []group.Finding
-	for _, f := range res.Findings {
+	for _, f := range res.Forest.Findings {
 		if f.Workload == workload && f.Reason == reason {
 			hits = append(hits, f)
 		}
@@ -70,7 +70,7 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 
 			assert.Equal(t, tt.wantRecords, res.Ingested)
 			assert.Zero(t, res.Skipped, "no provided capture contains a malformed record")
-			assert.Len(t, res.Findings, tt.wantFindings)
+			assert.Len(t, res.Forest.Findings, tt.wantFindings)
 
 			assert.Len(t, res.Records, tt.wantRecords,
 				"every record is retained, including the ~19,800 filtered as noise")
@@ -94,7 +94,7 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 func TestHealthyCaptureSurfacesNothingSustained(t *testing.T) {
 	res := run(t, "01-healthy.jsonl")
 
-	for _, f := range res.Findings {
+	for _, f := range res.Forest.Findings {
 		t.Run(f.Workload+"/"+f.Reason, func(t *testing.T) {
 			assert.Less(t, f.Severity, event.SeverityCritical, "nothing critical in a healthy cluster")
 			assert.LessOrEqual(t, f.Count, 3, "background warnings come in ones and threes")
@@ -152,7 +152,7 @@ func TestEvictionsSplitByFailureMode(t *testing.T) {
 	res := run(t, "05-test-b.jsonl")
 
 	var evictions []group.Finding
-	for _, f := range res.Findings {
+	for _, f := range res.Forest.Findings {
 		if f.Workload == "data-pipeline" && f.Reason == "Evicted" {
 			evictions = append(evictions, f)
 		}
@@ -203,7 +203,7 @@ func TestUnclassifiedReasonIsSurfaced(t *testing.T) {
 // FirstSeen alone leaves ties broken by map order -- and golden tests would
 // then fail intermittently rather than reproducibly.
 func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
-	first := run(t, "05-test-b.jsonl").Findings
+	first := run(t, "05-test-b.jsonl").Forest.Findings
 
 	for i := 1; i < len(first); i++ {
 		assert.False(t, first[i].FirstSeen.Before(first[i-1].FirstSeen),
@@ -216,6 +216,128 @@ func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
 	// confirms the property survives the whole pipeline.
 	const runs = 3
 	for i := 0; i < runs; i++ {
-		assert.Equal(t, first, run(t, "05-test-b.jsonl").Findings, "run %d diverged", i)
+		assert.Equal(t, first, run(t, "05-test-b.jsonl").Forest.Findings, "run %d diverged", i)
 	}
+}
+
+// TestForestMatchesTheFixtures pins the causal edge derived for every finding in
+// every provided capture.
+//
+// These assignments were produced by simulating the rules against the raw JSONL
+// before internal/link existed, so they are acceptance data rather than a test
+// written to agree with the code. An empty parent means the finding is a root:
+// nothing in the capture explains it.
+//
+// Findings are labelled workload/reason[rule] because reason alone is ambiguous:
+// 05-test-b evicts data-pipeline twice for different causes, and only one of
+// them belongs to the incident.
+func TestForestMatchesTheFixtures(t *testing.T) {
+	tests := []struct {
+		fixture string
+		want    map[string]string // child -> parent, "" for a root
+	}{
+		{"01-healthy.jsonl", map[string]string{
+			"data-pipeline/Evicted[evicted/memory-pressure]":      "",
+			"recommendation-service/FailedMount[failed-mount]":    "",
+			"notification-service/Unhealthy[unhealthy/readiness]": "",
+		}},
+		{"02-memory-leak.jsonl", map[string]string{
+			"data-pipeline/Evicted[evicted/memory-pressure]":     "",
+			"recommendation-service/OOMKilling[oom-killed]":      "",
+			"recommendation-service/BackOff[backoff/crash-loop]": "recommendation-service/OOMKilling[oom-killed]",
+			"order-service/Unhealthy[unhealthy/readiness]":       "",
+			"inventory-service/FailedMount[failed-mount]":        "",
+		}},
+		{"03-image-pull-failure.jsonl", map[string]string{
+			"data-pipeline/Evicted[evicted/memory-pressure]":    "",
+			"auth-service/Unhealthy[unhealthy/readiness]":       "",
+			"recommendation-service/FailedMount[failed-mount]":  "",
+			"payment-service/ScalingReplicaSet[deploy/scaled]":  "",
+			"payment-service/Failed[failed/image-pull]":         "payment-service/ScalingReplicaSet[deploy/scaled]",
+			"payment-service/BackOff[backoff/image-pull-retry]": "payment-service/Failed[failed/image-pull]",
+		}},
+		{"04-test-a.jsonl", map[string]string{
+			"data-pipeline/Evicted[evicted/memory-pressure]":    "",
+			"auth-service/FailedMount[failed-mount]":            "",
+			"data-pipeline/Unhealthy[unhealthy/readiness]":      "",
+			"checkout-service/ScalingReplicaSet[deploy/scaled]": "",
+			"checkout-service/Unhealthy[unhealthy/readiness]":   "checkout-service/ScalingReplicaSet[deploy/scaled]",
+		}},
+		{"05-test-b.jsonl", map[string]string{
+			"batch-reporter/Unhealthy[unhealthy/readiness]":       "",
+			"data-pipeline/Evicted[evicted/memory-pressure]":      "", // node-2, background
+			"api-gateway/FailedMount[failed-mount]":               "",
+			"node-4/NodeHasDiskPressure[node/disk-pressure]":      "",
+			"batch-reporter/Evicted[evicted/disk-pressure]":       "node-4/NodeHasDiskPressure[node/disk-pressure]",
+			"data-pipeline/Evicted[evicted/disk-pressure]":        "node-4/NodeHasDiskPressure[node/disk-pressure]",
+			"metrics-collector/Evicted[evicted/disk-pressure]":    "node-4/NodeHasDiskPressure[node/disk-pressure]",
+			"auth-service/Evicted[evicted/disk-pressure]":         "node-4/NodeHasDiskPressure[node/disk-pressure]",
+			"inventory-service/Evicted[evicted/disk-pressure]":    "node-4/NodeHasDiskPressure[node/disk-pressure]",
+			"notification-service/Evicted[evicted/disk-pressure]": "node-4/NodeHasDiskPressure[node/disk-pressure]",
+		}},
+		{"06-test-c.jsonl", map[string]string{
+			"batch-reporter/Evicted[evicted/memory-pressure]":   "",
+			"checkout-service/FailedMount[failed-mount]":        "",
+			"search-service/Unhealthy[unhealthy/readiness]":     "",
+			"data-pipeline/ScalingReplicaSet[deploy/scaled]":    "",
+			"data-pipeline/FailedScheduling[failed-scheduling]": "data-pipeline/ScalingReplicaSet[deploy/scaled]",
+			"data-pipeline/LALALALA[unclassified]":              "", // 600s after the rollout: vetoed by the window
+		}},
+	}
+
+	label := func(f group.Finding) string { return f.Workload + "/" + f.Reason + "[" + f.Rule + "]" }
+
+	for _, tt := range tests {
+		t.Run(tt.fixture, func(t *testing.T) {
+			forest := run(t, tt.fixture).Forest
+			require.Len(t, forest.Findings, len(tt.want), "expectation must cover every finding")
+
+			for i, f := range forest.Findings {
+				want, known := tt.want[label(f)]
+				require.True(t, known, "unexpected finding %s", label(f))
+
+				got := ""
+				if p := forest.Edges[i].Parent; p != -1 {
+					got = label(forest.Findings[p])
+				}
+
+				assert.Equal(t, want, got, "%s: wrong parent", label(f))
+			}
+
+			// The invariant that makes cycles impossible.
+			for i, e := range forest.Edges {
+				assert.True(t, e.Parent == -1 || e.Parent < i,
+					"Edges[%d].Parent = %d violates Parent < i", i, e.Parent)
+			}
+		})
+	}
+}
+
+// TestNodePressureIncidentIsOneTree is the payoff for 05: six workloads across
+// three namespaces, all evicted, all resolving to the same root. That is the
+// brief's "seemingly unconnected findings are sometimes side effects of the same
+// underlying issue", answered by the tool rather than by the reader.
+func TestNodePressureIncidentIsOneTree(t *testing.T) {
+	forest := run(t, "05-test-b.jsonl").Forest
+
+	var node int = -1
+	for i, f := range forest.Findings {
+		if f.Reason == "NodeHasDiskPressure" {
+			node = i
+		}
+	}
+	require.NotEqual(t, -1, node, "the node condition must be a finding")
+
+	children := forest.Children(node)
+	assert.Len(t, children, 6, "six workloads evicted by one node condition")
+
+	namespaces := map[string]bool{}
+	for _, c := range children {
+		assert.Equal(t, node, forest.RootOf(c), "every eviction traces to the node condition")
+		assert.Equal(t, "caused", forest.Edges[c].Kind.String())
+		assert.Contains(t, forest.Edges[c].Evidence, "DiskPressure",
+			"the evidence must quote the condition the record itself names")
+		namespaces[forest.Findings[c].Namespace] = true
+	}
+	assert.Len(t, namespaces, 3, "data, production and staging")
 }
