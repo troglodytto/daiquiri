@@ -29,7 +29,9 @@
 // tuples, which track the number of distinct failure modes rather than event
 // volume. Measured on the provided captures: 20,000 records produce 3 to 10
 // findings, so the quadratic term is over a quantity that does not grow with
-// input size. At n=1,000 it is roughly 1.5M comparisons, a few milliseconds.
+// input size. Measured: n=10 takes 30µs, and a synthetic n=1,000 -- two orders
+// of magnitude beyond anything the corpus produces -- takes 32ms, against a 5s
+// budget.
 //
 // # Why not an overlap-based structure
 //
@@ -162,12 +164,22 @@ func (f Forest) Roots() []int {
 	var out []int
 
 	for i := range f.Edges {
-		if f.Edges[i].Parent == noParent {
+		if f.IsRoot(i) {
 			out = append(out, i)
 		}
 	}
 
 	return out
+}
+
+// IsRoot reports whether nothing in the capture explains finding i.
+//
+// It exists so the sentinel stays private: the diagnose stage's suppression
+// predicate asks this question of every finding, and exporting noParent would
+// invite a caller to compare against a bare -1 that nothing keeps in step with
+// this package.
+func (f Forest) IsRoot(i int) bool {
+	return f.Edges[i].Parent == noParent
 }
 
 // Children returns the indices of findings directly explained by i.
@@ -249,7 +261,7 @@ var causalRules = []rule{
 		kind: KindCaused,
 		links: func(parent, child group.Finding) (string, bool) {
 			node, cond, ok := nodeConditionShared(parent, child)
-			if !ok || !bodyContains(child, "["+cond+"]") {
+			if !ok || !child.BodyContains("["+cond+"]") {
 				return "", false
 			}
 
@@ -351,17 +363,6 @@ func replicaSetOf(f group.Finding) (string, bool) {
 	}
 
 	return "", false
-}
-
-// bodyContains reports whether any of the finding's records contain token.
-func bodyContains(f group.Finding, token string) bool {
-	for _, e := range f.Events {
-		if strings.Contains(e.Body, token) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // firstBody returns the finding's earliest record body, trimmed for quoting.

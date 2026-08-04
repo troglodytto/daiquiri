@@ -33,19 +33,21 @@ logic 15% · output clarity 10% · code quality + tests 10% · docs 5%.
 | 1. classify | `internal/classify` | done, tested |
 | 2. coalesce | `internal/group` | done, tested |
 | 3. causality | `internal/link` | done, tested, benched, independently audited |
-| 4. **diagnose** | — | **not started — next** |
-| 5. render | `internal/report` | table only; needs pattern/evidence lines |
+| 4. diagnose | `internal/diagnose` | done, tested, benched |
+| 5. render | `internal/report` | table + pattern column + all-clear; **needs prioritised output — next** |
 
 `internal/triage` orchestrates. `cmd/triage` does flags and exit codes only.
 
 **Verification as of the last commit:** `gofmt` clean, `go vet` clean,
 `go test ./... -race` green across 7 packages.
 
-**Benchmarks** (`go test -bench . -benchmem`): whole pipeline ~140 ms for a
-16.5 MB / 20,000-record capture at 119 MB/s, 15 MB and 339k allocations. Against
-the brief's 5-second budget that is **35x headroom**. `link.Build` at the real
+**Benchmarks** (`go test -bench . -benchmem`): whole pipeline ~133 ms for a
+16.5 MB / 20,000-record capture at 124 MB/s, 15 MB and 339k allocations. Against
+the brief's 5-second budget that is **37x headroom**. `link.Build` at the real
 working point (n=10 findings) is 29.9 µs / 51 allocs; `RootOf` is 2.3 ns and
-allocation-free.
+allocation-free. `diagnose.Build` at n=10 is 670 ns / 11 allocs, and 1.7 ms at a
+synthetic n=1,000 chain — two orders of magnitude past anything a capture
+produces, since n counts distinct failure modes rather than records.
 
 ---
 
@@ -81,8 +83,15 @@ triage.Result{
     Cluster string
     Elapsed time.Duration
     Records []event.Event   // all 20,000 — noise retained as evidence
-    Forest  link.Forest
+    Chart   diagnose.Chart
 }
+
+diagnose.Chart{
+    link.Forest                    // embedded: Findings, Edges, Roots, Children, RootOf, IsRoot
+    Diagnoses []diagnose.Diagnosis // parallel: Diagnoses[i] judges Findings[i]
+}
+
+diagnose.Diagnosis{ Pattern Pattern; Confidence Confidence; Suppressed bool }
 
 link.Forest{
     Findings []group.Finding // ascending by FirstSeen
@@ -96,6 +105,7 @@ group.Finding{
     Category classify.Category
     Severity event.Severity
     Cause    string
+    Recognised bool        // false ⇒ never labelled, never suppressed (D-46)
     Count     int          // max(Count) per distinct EventUID, summed
     FirstSeen, LastSeen time.Time
     Pods  []string         // ONLY for Pod-kind findings; see §6
@@ -107,7 +117,13 @@ group.Finding{
 **The causal structure is one `int` per finding.** No graph library, no
 pointers, no union-find. The invariant `Edges[i].Parent < i` makes cycles
 structurally impossible, and sorting by time *is* the topological sort. Queries
-are `Roots()`, `Children(i)`, `RootOf(i)` — three linear scans.
+are `Roots()`, `Children(i)`, `RootOf(i)`, `IsRoot(i)` — linear scans.
+
+**Three index-coupled slices, one value.** `Chart` embeds `Forest` rather than
+holding it in a field, so a `Chart` is usable everywhere a `Forest` was and
+findings, edges and verdicts cannot be separated. Slices that *can* be sorted
+apart eventually *are*, and the failure mode is a wrong diagnosis rather than a
+crash.
 
 ---
 
@@ -192,6 +208,30 @@ Huge margins — any threshold in those gaps works.
 candidate is +600s. Any window in (98s, 600s) behaves identically; 300s chosen
 mid-gap.
 
+**Diagnose output** — reported findings after suppression, and the pattern each
+carries:
+
+| Fixture | findings | held back | reported | patterns |
+|---|---|---|---|---|
+| 01-healthy | 3 | 3 | **0** | — |
+| 02-memory-leak | 5 | 3 | 2 | sustained crash-loop ×2 |
+| 03-image-pull-failure | 6 | 3 | 3 | deploy-correlated ×2, marker |
+| 04-test-a | 5 | 3 | 2 | deploy-correlated, marker |
+| 05-test-b | 10 | 3 | 7 | node issue ×7 |
+| 06-test-c | 6 | 3 | 3 | capacity, marker, unlabelled |
+
+**Exactly three held back in every capture, and always the same three shapes** —
+an `Evicted[memory-pressure]`, a `FailedMount`, an `Unhealthy` ×3. The brief
+plants an identical background floor in all six files. A predicate tuned to one
+of them would not land on the same three in the other five, so this is
+corroboration rather than a fit. `TestEveryCaptureHoldsBackTheSameThreeShapes`
+pins it.
+
+**Transient bounds:** background findings run 1–3 occurrences / 1 pod / 0–16s;
+real problems run 18–222 / 3–6 pods / 7m49s+. Constants are 10, 1 and 60s
+(D-43). `transientSpan` decides nothing on this corpus and is present anyway —
+see D-43 for why that is deliberate rather than dead.
+
 ---
 
 ## 6. Traps discovered the hard way
@@ -209,7 +249,9 @@ mid-gap.
   positives on 01-healthy" cannot be met by reason-based filtering.**
 - **05's individual evictions are shape-identical to that floor** (n=1, 1 pod,
   span 0). Shape alone cannot separate them — only the causal link can. This is
-  why the suppression predicate is `transient ∧ unexplained`, not `transient`.
+  why the suppression predicate is `transient ∧ unexplained ∧ non-explanatory`,
+  not `transient`. The third clause is what saves node-4's own condition, which
+  is shape-identical to a decoy and has six evictions hanging off it.
 - **Pod names are cattle.** `k8s.object.name` is the instance; grouping must roll
   up to the workload or 04's 222 records become dozens of findings.
 - **One reason can carry two failure modes.** `Evicted` is disk-pressure *and*
@@ -221,6 +263,14 @@ mid-gap.
 - **`Finding.Pods` is populated only for Pod-kind findings.** Filling it blindly
   put a node in a field called `Pods`, and would have made the same-pod rule
   print evidence reading *"same pod node-4"*.
+- **Severity can move a record between fallback branches.** 06's probe record
+  carried `severity_text: "Normal"` with `severity_number: 13` (Warning). As a
+  Warning it becomes a `CategoryIssue` with `Recognised: false`, which walks
+  straight past a guard written as `Category == Issue`. Guard on `Recognised`
+  (D-46): *a finding we decline to categorise is exactly one we may not dismiss.*
+- **`report`'s tests must supply their own diagnoses.** Deriving them by calling
+  `diagnose` makes the renderer's golden files move whenever a threshold is
+  retuned, which tests the wrong package. `Chart` is all exported for this.
 - **lipgloss:** `lipgloss.NewRenderer(w, termenv.WithProfile(...))` does **not**
   work — lipgloss re-detects from the writer and reverts to Ascii. Use
   `renderer.SetColorProfile(termenv.ANSI)` after construction. Also termenv
@@ -250,44 +300,56 @@ impresses and should be built *last*, after the graded checkboxes are green.
 
 ## 8. Next steps, in order
 
-### 8.1 Step 4 — diagnose *(next; ~half a day)*
+### 8.1 Step 4 — diagnose *(DONE)*
 
-Add a `Pattern` to `group.Finding` and a suppression decision. Everything needed
-is already on `Finding` and `Forest`.
+Shipped as `internal/diagnose`, not as a field on `group.Finding` — two of the
+five patterns are read off `RootOf(i)`, which `group` runs too early to see
+(D-40). `Chart` embeds the forest and adds one `Diagnosis` per finding.
 
-| Pattern | Decided from | Needs the forest? |
+| Pattern | Decided from | Fires on |
 |---|---|---|
-| transient blip | count, span, pod count | no |
-| sustained crash-loop | occupancy over time + reason | no |
-| capacity issue | reason + body contains `Insufficient` | no |
-| deploy-correlated | root is a deploy marker | **yes** |
-| node issue | root is a node condition | **yes** |
+| capacity issue | rule `failed-scheduling` **and** body names `Insufficient` | 06 |
+| sustained crash-loop | rule `backoff/crash-loop` or `oom-killed`, not transient | 02 |
+| node issue | root is a Node-kind finding | 05 |
+| deploy-correlated failure | root is a deploy marker | 03, 04 |
+| transient blip | small on count, pods **and** span | the background floor |
 
-**The suppression predicate is `transient ∧ unexplained`** — where unexplained
-means `Parent == -1` *and* no children. Shape alone deletes 05; the conjunction
-is what silences `01-healthy` without it.
+First match wins, and **mechanism outranks trigger** — 06 is truthfully both
+capacity and deploy-correlated, and reads as capacity because the rollout is
+already stated by the causal edge in far more detail (D-42).
 
-**Root classification** (D-34, needs no threshold):
-deploy marker or node condition root → *explained*, high confidence · a failure
-root **with** children → *partially explained* (02: "the crash-loop is explained
-by OOM kills; what drove the memory growth is not in this capture") · a failure
-root with **no** children → *unexplained*.
+Suppression is `recognised issue ∧ transient ∧ root ∧ childless` (D-44, D-46).
+Confidence is decided by *what the root is*, never by when (D-34): a rollout or
+node condition root is **explained**, a failure root with children is
+**partially explained**, a failure root without them is **unexplained**.
 
-Open: **O-02**, the numeric thresholds. Margins are large (§5); each still needs
-a named constant with its derivation.
+Nothing is deleted — `Suppressed` is a flag, the count is in the header, and
+`Chart.Findings` still holds everything (D-45).
 
-### 8.2 Report — prioritised output *(few hours)*
+### 8.2 Report — prioritised output *(next; few hours)*
 
-Order by severity, then blast radius. Add the pattern line, the evidence line
-and the likely-cause line, in the brief's shape:
+Done already: the `PATTERN` column, suppression applied to the table, the
+suppressed count in the header, and the all-clear rendering (D-47) that makes
+`01-healthy` print a green **✓ ALL CLEAR** with what it held back.
+
+Still to do — the table is still in **chronological** order, and the brief asks
+for prioritised:
+
+- Order incidents by severity, then by blast radius. Keep each incident's
+  members together and led by its root, per D-04 — the first line a paged
+  engineer reads should already be the origin.
+- Add the likely-cause and evidence lines beneath each row, in the brief's shape:
 
 ```
 [CRITICAL] Failed on payment-service (production)
   24 events across 3 pods on 3 nodes, 10:18:04 → 10:28:19, still failing
-  Pattern: deploy-correlated · image pull failure
+  Pattern: deploy-correlated failure · image pull failure
   Likely cause: the 10:17:59.977 rollout of payment-service; first failure
                 4.4s after it, zero occurrences before it
 ```
+
+Everything that line needs is already on the chart: `Cause` from classify,
+`Evidence` from the edge, `Pattern` and `Confidence` from the diagnosis.
 
 ### 8.3 Deliverables — **all three are hard requirements and all are missing**
 
@@ -298,6 +360,10 @@ and the likely-cause line, in the brief's shape:
 - **ANALYSIS.md** — 04, 05, 06, ~150 words each: Diagnosis, Evidence quoted from
   the tool's output, remediation for the next five minutes, Confidence plus what
   would raise it. **This is 35% of the grade — protect its time ruthlessly.**
+  The Confidence field maps straight off `diagnose.Confidence`: *explained* →
+  high, *partially explained* → medium, *unexplained* → low. What would raise it
+  is the same sentence in every case — a capture that starts earlier, since every
+  partial and unexplained root in the corpus is a trail running off the front.
 
 ### 8.4 Optional, only if 8.1–8.3 are done
 

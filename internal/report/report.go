@@ -22,6 +22,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"github.com/troglodytto/daiquiri/internal/diagnose"
 	"github.com/troglodytto/daiquiri/internal/event"
 	"github.com/troglodytto/daiquiri/internal/group"
 	"github.com/troglodytto/daiquiri/internal/triage"
@@ -47,6 +48,7 @@ const (
 type palette struct {
 	header, rule, meta          lipgloss.Style
 	critical, warning, infoDull lipgloss.Style
+	healthy                     lipgloss.Style
 }
 
 func paletteFrom(lr *lipgloss.Renderer) palette {
@@ -57,6 +59,11 @@ func paletteFrom(lr *lipgloss.Renderer) palette {
 		critical: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("1")),
 		warning:  lr.NewStyle().Foreground(lipgloss.Color("3")),
 		infoDull: lr.NewStyle().Faint(true),
+
+		// The fourth colour, and the only one that is not a severity. It appears
+		// on exactly one line, which never coexists with a table -- so the "three
+		// conventional colours" rule the palette follows is not weakened by it.
+		healthy: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("2")),
 	}
 }
 
@@ -147,13 +154,15 @@ func (r *Renderer) Render(res triage.Result) error {
 
 	r.writeHeader(&b, res)
 
-	if len(res.Forest.Findings) == 0 {
-		b.WriteString("\nno issues detected\n")
+	reported := res.Chart.Reported()
+	if len(reported) == 0 {
+		r.writeAllClear(&b, res)
 		_, err := io.WriteString(r.w, b.String())
+
 		return err
 	}
 
-	r.writeTable(&b, res.Forest.Findings)
+	r.writeTable(&b, res.Chart, reported)
 
 	_, err := io.WriteString(r.w, b.String())
 
@@ -174,7 +183,13 @@ func (r *Renderer) writeHeader(b *strings.Builder, res triage.Result) {
 	fmt.Fprintln(b, r.paint(r.style.header, title))
 
 	meta := fmt.Sprintf("%s records, %s filtered as noise, %d findings",
-		commas(res.Ingested), commas(res.Noise), len(res.Forest.Findings))
+		commas(res.Ingested), commas(res.Noise), len(res.Chart.Reported()))
+
+	// Disclosed for the same reason as the two counters below it: a number the
+	// reader can ask about beats a fact that silently left.
+	if n := res.Chart.SuppressedCount(); n > 0 {
+		meta += fmt.Sprintf(", %d suppressed as background", n)
+	}
 
 	if res.Skipped > 0 {
 		meta += fmt.Sprintf(", skipped %d", res.Skipped)
@@ -189,9 +204,44 @@ func (r *Renderer) writeHeader(b *strings.Builder, res triage.Result) {
 	fmt.Fprintln(b, r.paint(r.style.meta, meta))
 }
 
-// writeTable writes the findings, one row each, in the order given.
-func (r *Renderer) writeTable(b *strings.Builder, findings []group.Finding) {
-	cols := columnsOf(findings)
+// writeAllClear writes the healthy-cluster result.
+//
+// A clean capture is a real answer, not the absence of one, and at 3am it is the
+// answer the reader most wants to be able to trust at a glance -- so it gets a
+// line of its own and the one colour in the palette that is not a severity.
+//
+// It states what was held back in the same breath. "No findings" from a tool
+// that quietly suppressed three things is a claim the reader cannot check, and
+// the whole suppression design rests on the count being visible. Where nothing
+// was held back, the sentence says that instead: silence because there was
+// nothing, not silence because we filtered.
+func (r *Renderer) writeAllClear(b *strings.Builder, res triage.Result) {
+	fmt.Fprintf(b, "\n%s\n\n", r.paint(r.style.healthy, "✓  ALL CLEAR"))
+	fmt.Fprintln(b, "   No findings. Nothing here needs an on-call response.")
+
+	if n := res.Chart.SuppressedCount(); n > 0 {
+		fmt.Fprintf(b, "   %s held back as background -- each explained by nothing,\n   and explaining nothing.\n",
+			plural(n, "transient blip"))
+
+		return
+	}
+
+	fmt.Fprintln(b, "   Nothing was held back.")
+}
+
+// plural renders a count with its noun, so the all-clear line reads as a
+// sentence rather than as a counter.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+
+	return fmt.Sprintf("%d %ss", n, noun)
+}
+
+// writeTable writes the reported findings, one row each, in the order given.
+func (r *Renderer) writeTable(b *strings.Builder, c diagnose.Chart, reported []int) {
+	cols := columnsOf(c, reported)
 
 	widths := make([]int, len(cols))
 	total := 0
@@ -213,23 +263,23 @@ func (r *Renderer) writeTable(b *strings.Builder, findings []group.Finding) {
 	fmt.Fprintln(b, r.paint(r.style.header, strings.TrimRight(strings.Join(heads, gap), " ")))
 	fmt.Fprintln(b, r.paint(r.style.rule, strings.Repeat("─", total)))
 
-	for row := range findings {
+	for row, at := range reported {
 		cells := make([]string, len(cols))
-		for i, c := range cols {
-			cells[i] = pad(c.rows[row], widths[i], c.rightA)
+		for i, col := range cols {
+			cells[i] = pad(col.rows[row], widths[i], col.rightA)
 		}
 
 		// The whole row takes the severity colour rather than the severity cell
 		// alone: at a glance the eye is looking for the critical line, not for a
 		// critical word.
-		fmt.Fprintln(b, r.paint(r.severityStyle(findings[row].Severity), strings.TrimRight(strings.Join(cells, gap), " ")))
+		fmt.Fprintln(b, r.paint(r.severityStyle(c.Findings[at].Severity), strings.TrimRight(strings.Join(cells, gap), " ")))
 	}
 
 	fmt.Fprintln(b, r.paint(r.style.rule, strings.Repeat("─", total)))
 }
 
-// columnsOf builds the table's columns from the findings.
-func columnsOf(findings []group.Finding) []column {
+// columnsOf builds the table's columns from the reported findings.
+func columnsOf(c diagnose.Chart, reported []int) []column {
 	cols := []column{
 		{head: "TIME"},
 		{head: "SEVERITY"},
@@ -240,9 +290,11 @@ func columnsOf(findings []group.Finding) []column {
 		{head: "PODS", rightA: true},
 		{head: "WINDOW"},
 		{head: "NODES"},
+		{head: "PATTERN"},
 	}
 
-	for _, f := range findings {
+	for _, at := range reported {
+		f := c.Findings[at]
 		values := []string{
 			f.FirstSeen.UTC().Format(timeLayout),
 			f.Severity.String(),
@@ -253,6 +305,7 @@ func columnsOf(findings []group.Finding) []column {
 			scope(f),
 			window(f),
 			nodes(f),
+			pattern(c.Diagnoses[at]),
 		}
 		for i := range cols {
 			cols[i].rows = append(cols[i].rows, values[i])
@@ -260,6 +313,18 @@ func columnsOf(findings []group.Finding) []column {
 	}
 
 	return cols
+}
+
+// pattern renders the diagnosis, or a dash where naming one would be a guess.
+//
+// A dash rather than an empty cell, for the same reason as nodes: a blank reads
+// as missing data, and the abstention here is deliberate.
+func pattern(d diagnose.Diagnosis) string {
+	if d.Pattern == diagnose.PatternNone {
+		return "-"
+	}
+
+	return d.Pattern.String()
 }
 
 // window renders how long the finding lasted.

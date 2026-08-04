@@ -14,6 +14,7 @@ package group
 
 import (
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/troglodytto/daiquiri/internal/classify"
@@ -77,6 +78,16 @@ type Finding struct {
 	Severity event.Severity
 	Cause    string
 
+	// Recognised is false when the reason is not in the taxonomy and the verdict
+	// came from the conservative fallback.
+	//
+	// Carried this far because it is the difference between a judgement and a
+	// guess. The diagnose stage refuses to name a pattern for an unrecognised
+	// reason, and refuses to suppress one: calling a finding background noise is
+	// a claim to understand it well enough to know it does not matter, and that
+	// claim cannot be made about a reason we have never seen.
+	Recognised bool
+
 	// Count is occurrences, not records. See occurrences.
 	Count int
 
@@ -109,6 +120,26 @@ type Finding struct {
 	// indistinguishable -- and telling them apart is exactly what stops
 	// 01-healthy.jsonl reporting false positives.
 	Events []event.Event
+}
+
+// BodyContains reports whether any of the finding's records contain token.
+//
+// A query over the finding's own data rather than an interpretation of it, so it
+// does not breach this package's prohibition on interpreting. It lives here
+// because two later stages need it and neither should reach into Events to
+// re-implement the loop: link reads the body to check that an evicted pod names
+// the node condition that evicted it, and diagnose reads it to tell a capacity
+// failure from a taint.
+//
+// Matching is case-sensitive because Kubernetes emits fixed strings.
+func (f Finding) BodyContains(token string) bool {
+	for _, e := range f.Events {
+		if strings.Contains(e.Body, token) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Coalesce folds classified events into findings, ordered for display.
@@ -169,9 +200,10 @@ func findingOf(k key, members []Classified) Finding {
 		Rule:      k.rule,
 
 		// Every member matched the same rule, so they share a verdict.
-		Category: members[0].Class.Category,
-		Severity: members[0].Class.Severity,
-		Cause:    members[0].Class.Cause,
+		Category:   members[0].Class.Category,
+		Severity:   members[0].Class.Severity,
+		Cause:      members[0].Class.Cause,
+		Recognised: members[0].Class.Recognised,
 
 		Count:     occurrences(events),
 		FirstSeen: events[0].Timestamp,

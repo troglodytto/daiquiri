@@ -37,7 +37,7 @@ func find(t *testing.T, res triage.Result, workload, reason string) group.Findin
 	t.Helper()
 
 	var hits []group.Finding
-	for _, f := range res.Forest.Findings {
+	for _, f := range res.Chart.Findings {
 		if f.Workload == workload && f.Reason == reason {
 			hits = append(hits, f)
 		}
@@ -71,7 +71,7 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 
 			assert.Equal(t, tt.wantRecords, res.Ingested)
 			assert.Zero(t, res.Skipped, "no provided capture contains a malformed record")
-			assert.Len(t, res.Forest.Findings, tt.wantFindings)
+			assert.Len(t, res.Chart.Findings, tt.wantFindings)
 
 			assert.Len(t, res.Records, tt.wantRecords,
 				"every record is retained, including the ~19,800 filtered as noise")
@@ -95,7 +95,7 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 func TestHealthyCaptureSurfacesNothingSustained(t *testing.T) {
 	res := run(t, "01-healthy.jsonl")
 
-	for _, f := range res.Forest.Findings {
+	for _, f := range res.Chart.Findings {
 		t.Run(f.Workload+"/"+f.Reason, func(t *testing.T) {
 			assert.Less(t, f.Severity, event.SeverityCritical, "nothing critical in a healthy cluster")
 			assert.LessOrEqual(t, f.Count, 3, "background warnings come in ones and threes")
@@ -153,7 +153,7 @@ func TestEvictionsSplitByFailureMode(t *testing.T) {
 	res := run(t, "05-test-b.jsonl")
 
 	var evictions []group.Finding
-	for _, f := range res.Forest.Findings {
+	for _, f := range res.Chart.Findings {
 		if f.Workload == "data-pipeline" && f.Reason == "Evicted" {
 			evictions = append(evictions, f)
 		}
@@ -186,16 +186,27 @@ func TestNodeConditionCarriesItsNodeIdentity(t *testing.T) {
 	assert.Equal(t, event.SeverityCritical, f.Severity)
 }
 
-// TestUnclassifiedReasonIsSurfaced covers the probe record planted in 06, whose
-// body asks not to be buried. It is Normal severity, so routing unrecognised
-// Normal events to noise hides exactly the record that argues against hiding.
-func TestUnclassifiedReasonIsSurfaced(t *testing.T) {
+// TestUnrecognisedReasonIsSurfaced covers the probe record planted in 06, whose
+// body asks not to be buried: "In case there are some new events that we haven't
+// really recognized and handled, we'd much rather surface it, instead of burying
+// it."
+//
+// It is a Warning, so the fallback promotes it to an issue rather than demoting
+// it -- the cost of one spurious low-confidence finding is far below the cost of
+// silently dropping a novel failure mode. Recognised stays false, which is what
+// stops the diagnose stage from labelling it or suppressing it on shape.
+//
+// The Normal-severity branch of the same fallback, which yields
+// CategoryUnclassified, is covered by classify's own tests; no capture exercises
+// it.
+func TestUnrecognisedReasonIsSurfaced(t *testing.T) {
 	res := run(t, "06-test-c.jsonl")
 
 	assert.Equal(t, 1, res.Unrecognised, "the header discloses what could not be interpreted")
 
 	f := find(t, res, "data-pipeline", "LALALALA")
-	assert.Equal(t, classify.CategoryUnclassified, f.Category)
+	assert.Equal(t, classify.CategoryIssue, f.Category)
+	assert.False(t, f.Recognised, "surfaced, but never claimed as understood")
 	assert.NotEmpty(t, f.Cause)
 }
 
@@ -204,7 +215,7 @@ func TestUnclassifiedReasonIsSurfaced(t *testing.T) {
 // FirstSeen alone leaves ties broken by map order -- and golden tests would
 // then fail intermittently rather than reproducibly.
 func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
-	first := run(t, "05-test-b.jsonl").Forest.Findings
+	first := run(t, "05-test-b.jsonl").Chart.Findings
 
 	for i := 1; i < len(first); i++ {
 		assert.False(t, first[i].FirstSeen.Before(first[i-1].FirstSeen),
@@ -217,7 +228,7 @@ func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
 	// confirms the property survives the whole pipeline.
 	const runs = 3
 	for i := 0; i < runs; i++ {
-		assert.Equal(t, first, run(t, "05-test-b.jsonl").Forest.Findings, "run %d diverged", i)
+		assert.Equal(t, first, run(t, "05-test-b.jsonl").Chart.Findings, "run %d diverged", i)
 	}
 }
 
@@ -282,7 +293,7 @@ func TestForestMatchesTheFixtures(t *testing.T) {
 			"search-service/Unhealthy[unhealthy/readiness]":     "",
 			"data-pipeline/ScalingReplicaSet[deploy/scaled]":    "",
 			"data-pipeline/FailedScheduling[failed-scheduling]": "data-pipeline/ScalingReplicaSet[deploy/scaled]",
-			"data-pipeline/LALALALA[unclassified]":              "", // 600s after the rollout: vetoed by the window
+			"data-pipeline/LALALALA[unrecognised-warning]":      "", // 600s after the rollout: vetoed by the window
 		}},
 	}
 
@@ -290,7 +301,7 @@ func TestForestMatchesTheFixtures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.fixture, func(t *testing.T) {
-			forest := run(t, tt.fixture).Forest
+			forest := run(t, tt.fixture).Chart.Forest
 			require.Len(t, forest.Findings, len(tt.want), "expectation must cover every finding")
 
 			for i, f := range forest.Findings {
@@ -319,9 +330,9 @@ func TestForestMatchesTheFixtures(t *testing.T) {
 // brief's "seemingly unconnected findings are sometimes side effects of the same
 // underlying issue", answered by the tool rather than by the reader.
 func TestNodePressureIncidentIsOneTree(t *testing.T) {
-	forest := run(t, "05-test-b.jsonl").Forest
+	forest := run(t, "05-test-b.jsonl").Chart.Forest
 
-	var node int = -1
+	node := -1
 	for i, f := range forest.Findings {
 		if f.Reason == "NodeHasDiskPressure" {
 			node = i
@@ -359,7 +370,7 @@ func TestForestInvariantsHoldOnEveryFixture(t *testing.T) {
 
 	for _, fx := range fixtures {
 		t.Run(fx, func(t *testing.T) {
-			f := run(t, fx).Forest
+			f := run(t, fx).Chart.Forest
 
 			require.Len(t, f.Edges, len(f.Findings), "one edge per finding")
 
@@ -448,4 +459,151 @@ func anyBodyContains(f group.Finding, token string) bool {
 		}
 	}
 	return false
+}
+
+// TestDiagnosisMatchesTheFixtures is the acceptance test for the diagnose stage.
+//
+// Every reported finding is pinned to its pattern, and every capture to how many
+// findings it holds back. The expectations were derived from the raw captures
+// before the stage was written, so a change here is a change in behaviour rather
+// than a test that needs updating.
+//
+// The two numbers that matter most are at the ends. 01-healthy reports nothing,
+// which is the whole point of suppressing anything at all. 05-test-b reports
+// seven, because a node condition and the six workloads it evicted are one
+// incident and the predicate must not take shape as permission to break it up.
+func TestDiagnosisMatchesTheFixtures(t *testing.T) {
+	tests := []struct {
+		fixture    string
+		suppressed int
+		want       map[string]string // workload/reason -> pattern
+	}{
+		{"01-healthy.jsonl", 3, map[string]string{}},
+
+		{"02-memory-leak.jsonl", 3, map[string]string{
+			"recommendation-service/OOMKilling": "sustained crash-loop",
+			"recommendation-service/BackOff":    "sustained crash-loop",
+		}},
+
+		{"03-image-pull-failure.jsonl", 3, map[string]string{
+			"payment-service/ScalingReplicaSet": "",
+			"payment-service/Failed":            "deploy-correlated failure",
+			"payment-service/BackOff":           "deploy-correlated failure",
+		}},
+
+		{"04-test-a.jsonl", 3, map[string]string{
+			"checkout-service/ScalingReplicaSet": "",
+			"checkout-service/Unhealthy":         "deploy-correlated failure",
+		}},
+
+		// The condition and all six evictions share one label, so the reader sees
+		// one node failure rather than seven warnings across three namespaces.
+		{"05-test-b.jsonl", 3, map[string]string{
+			"node-4/NodeHasDiskPressure":   "node issue",
+			"batch-reporter/Evicted":       "node issue",
+			"data-pipeline/Evicted":        "node issue",
+			"metrics-collector/Evicted":    "node issue",
+			"auth-service/Evicted":         "node issue",
+			"inventory-service/Evicted":    "node issue",
+			"notification-service/Evicted": "node issue",
+		}},
+
+		// FailedScheduling is truthfully both capacity and deploy-correlated. The
+		// mechanism wins, because the trigger is already stated by the causal edge.
+		// LALALALA gets no pattern: we could not read it, so we do not label it.
+		{"06-test-c.jsonl", 3, map[string]string{
+			"data-pipeline/ScalingReplicaSet": "",
+			"data-pipeline/FailedScheduling":  "capacity issue",
+			"data-pipeline/LALALALA":          "",
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fixture, func(t *testing.T) {
+			c := run(t, tt.fixture).Chart
+
+			reported := c.Reported()
+			assert.Equal(t, tt.suppressed, c.SuppressedCount(), "background findings held back")
+			assert.Len(t, c.Findings, len(reported)+tt.suppressed, "nothing may be deleted")
+			require.Len(t, reported, len(tt.want), "expectation must cover every reported finding")
+
+			for _, i := range reported {
+				label := c.Findings[i].Workload + "/" + c.Findings[i].Reason
+				want, known := tt.want[label]
+				require.True(t, known, "unexpected reported finding %s", label)
+				assert.Equal(t, want, c.Diagnoses[i].Pattern.String(), "pattern for %s", label)
+			}
+		})
+	}
+}
+
+// TestEveryCaptureHoldsBackTheSameThreeShapes is corroboration rather than a
+// second assertion of the counts above.
+//
+// The brief plants an identical background floor in all six files -- one
+// eviction for node memory pressure, one failed mount, one three-event readiness
+// blip -- and a predicate tuned to whichever capture it was written against
+// would not land on the same three in the other five. That it does is the
+// evidence that D-43's bounds are not fitted to this corpus.
+func TestEveryCaptureHoldsBackTheSameThreeShapes(t *testing.T) {
+	fixtures := []string{
+		"01-healthy.jsonl", "02-memory-leak.jsonl", "03-image-pull-failure.jsonl",
+		"04-test-a.jsonl", "05-test-b.jsonl", "06-test-c.jsonl",
+	}
+
+	for _, fx := range fixtures {
+		t.Run(fx, func(t *testing.T) {
+			c := run(t, fx).Chart
+
+			var held []string
+			for i, d := range c.Diagnoses {
+				if !d.Suppressed {
+					continue
+				}
+
+				assert.Equal(t, "transient blip", d.Pattern.String(),
+					"anything held back must be labelled as what it is")
+				held = append(held, c.Findings[i].Reason)
+			}
+
+			assert.ElementsMatch(t, []string{"Evicted", "FailedMount", "Unhealthy"}, held)
+		})
+	}
+}
+
+// TestConfidenceMatchesTheFixtures pins D-34's root classification, which needs
+// no threshold: a finding is as explained as whatever sits at the top of its
+// incident.
+func TestConfidenceMatchesTheFixtures(t *testing.T) {
+	tests := []struct {
+		fixture, workload, reason, want string
+	}{
+		// The trail runs off the front of the capture. The OOM kills explain the
+		// crash-loop; what drove the memory growth is not here.
+		{"02-memory-leak.jsonl", "recommendation-service", "BackOff", "partially explained"},
+		{"02-memory-leak.jsonl", "recommendation-service", "OOMKilling", "partially explained"},
+
+		{"03-image-pull-failure.jsonl", "payment-service", "BackOff", "explained"},
+		{"04-test-a.jsonl", "checkout-service", "Unhealthy", "explained"},
+		{"05-test-b.jsonl", "auth-service", "Evicted", "explained"},
+		{"06-test-c.jsonl", "data-pipeline", "FailedScheduling", "explained"},
+
+		// Nothing before it and nothing after it.
+		{"06-test-c.jsonl", "data-pipeline", "LALALALA", "unexplained"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fixture+"/"+tt.workload+"/"+tt.reason, func(t *testing.T) {
+			c := run(t, tt.fixture).Chart
+
+			for i := range c.Findings {
+				if c.Findings[i].Workload == tt.workload && c.Findings[i].Reason == tt.reason {
+					assert.Equal(t, tt.want, c.Diagnoses[i].Confidence.String())
+					return
+				}
+			}
+
+			t.Fatalf("no finding %s/%s", tt.workload, tt.reason)
+		})
+	}
 }

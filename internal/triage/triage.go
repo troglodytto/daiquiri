@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/troglodytto/daiquiri/internal/classify"
+	"github.com/troglodytto/daiquiri/internal/diagnose"
 	"github.com/troglodytto/daiquiri/internal/event"
 	"github.com/troglodytto/daiquiri/internal/group"
 	"github.com/troglodytto/daiquiri/internal/link"
@@ -68,14 +69,14 @@ type Result struct {
 	// a 16 MB input file.
 	Records []event.Event
 
-	// Forest holds the coalesced reportable groups -- issues, deploy markers and
-	// unclassified reasons -- together with the causal edge derived for each.
-	// Lifecycle noise never becomes a finding.
+	// Chart holds the coalesced reportable groups -- issues, deploy markers and
+	// unclassified reasons -- together with the causal edge derived for each and
+	// the verdict reached on each. Lifecycle noise never becomes a finding.
 	//
-	// The findings and their edges are held as one value rather than two fields
-	// because they are index-coupled: sorting one without the other would
-	// produce a wrong diagnosis rather than a crash.
-	Forest link.Forest
+	// The three are held as one value rather than three fields because they are
+	// index-coupled: sorting one without the others would produce a wrong
+	// diagnosis rather than a crash.
+	Chart diagnose.Chart
 
 	// Elapsed is wall-clock time for the run.
 	Elapsed time.Duration
@@ -87,8 +88,15 @@ func (res Result) Summarise() string {
 		"Records ingested: %d | Filtered as noise: %d | Findings: %d",
 		res.Ingested,
 		res.Noise,
-		len(res.Forest.Findings),
+		len(res.Chart.Reported()),
 	)
+
+	// Background findings are counted, never silently dropped. The worst case
+	// for a mis-tuned threshold is then a number the reader can ask about,
+	// rather than a fact that left without saying so.
+	if n := res.Chart.SuppressedCount(); n > 0 {
+		s += fmt.Sprintf(" | Background: %d", n)
+	}
 
 	// Both numbers are disclosed rather than hidden: a truncated capture must
 	// not be able to look clean, and neither must one the taxonomy could not
@@ -166,7 +174,7 @@ func (p *Pipeline) Run(r io.Reader) (Result, error) {
 		return Result{}, fmt.Errorf("triage: decoding: %w", err)
 	}
 
-	res.Forest = link.Build(group.Coalesce(reportable))
+	res.Chart = diagnose.Build(link.Build(group.Coalesce(reportable)))
 
 	stats := d.Stats()
 	res.Ingested = stats.Ingested

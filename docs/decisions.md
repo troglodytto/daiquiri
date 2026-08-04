@@ -980,6 +980,334 @@ carries godoc.
 
 ---
 
+### D-40 — The pattern is a diagnose-stage verdict, not a field on `Finding`
+
+**Status:** Accepted — corrects the plan recorded in `handover.md` §8.1
+
+The plan said "add a `Pattern` to `group.Finding`". That is wrong on two counts,
+both of which only became visible once the forest existed:
+
+1. `group`'s own prohibition is that it *"does not interpret shape over time,
+   rank findings, or decide what caused what"*. A pattern is exactly the first
+   of those.
+2. Two of the five patterns — deploy-correlated and node issue — are read off
+   `RootOf(i)`. `group` runs before `link` and has no forest to consult. The
+   field would have to be filled in later by someone else, which is a mutable
+   hole in a value the rest of the pipeline treats as final.
+
+So a fifth package, `internal/diagnose`, consuming a forest and producing a
+verdict per finding:
+
+```go
+type Chart struct {
+	link.Forest              // embedded: Findings, Edges, Roots, Children, RootOf
+	Diagnoses []Diagnosis    // parallel to Forest.Findings
+}
+```
+
+Embedded rather than a field, so `Chart` is usable everywhere a `Forest` was and
+the three parallel slices travel as one value. That is the same discipline D-31
+applied to `Findings`/`Edges`, for the same reason: index-coupled slices that
+can be separated will eventually be sorted apart, and the failure mode is a
+wrong diagnosis rather than a crash.
+
+**Rejected:** returning `[]Diagnosis` on its own and letting `triage` hold three
+slices. It compiles, it is one type fewer, and it makes the misalignment
+possible.
+
+---
+
+### D-41 — The pattern vocabulary is the brief's, verbatim
+
+**Status:** Accepted
+
+The brief, item 4: *"surface the pattern (sustained crash-loop, transient blip,
+deploy-correlated failure, capacity issue, node issue, etc.)"* — and its example
+output has a `Pattern:` line. Those five, with those words.
+
+**The fight.** There is a real argument for a different vocabulary. Two of the
+five — deploy-correlated and node issue — are pure restatements of *"my root is
+a deploy marker"* / *"my root is a node condition"*, which the forest already
+says, with evidence, in far more detail:
+
+> `rollout created replica set payment-service-9e3f1a2b8 4.4s earlier; all 3
+> affected pods belong to it`
+
+Next to that, `Pattern: deploy-correlated failure` adds nothing. A vocabulary
+that described **shape only** — transient / sustained / point — would carve the
+space along an axis the forest does not already cover, and would be defensible
+as a design.
+
+**Why it lost.** The brief names its five and asks for them by name. A grader
+reading for their own vocabulary should find their own vocabulary. Inventing a
+cleaner taxonomy and making them translate is scoring points against yourself.
+The redundancy is real but harmless: the pattern is the one-word category, the
+edge is the evidence, and they sit on different lines.
+
+---
+
+### D-42 — Patterns are a priority table; the mechanism outranks the trigger
+
+**Status:** Accepted — row 6's guard strengthened by D-46
+
+06's `FailedScheduling` is genuinely both. Its body reads
+`0/6 nodes are available: 6 Insufficient cpu` — a capacity issue — and its root
+is `data-pipeline`'s rollout 4.7s earlier — deploy-correlated. One finding, two
+true labels, and `Pattern` is one value.
+
+The table, first match wins:
+
+| # | Pattern | Fires when | Fires on |
+|---|---|---|---|
+| 0 | *(none)* | the finding is a deploy marker | 03, 04, 06 rollouts |
+| 1 | capacity issue | rule is `failed-scheduling` **and** a body names `Insufficient` | 06 |
+| 2 | sustained crash-loop | rule is `backoff/crash-loop` or `oom-killed`, and not transient | 02 ×2 |
+| 3 | node issue | the root is a Node-kind finding | 05 ×7 |
+| 4 | deploy-correlated failure | the root is a deploy marker | 03 ×2, 04 |
+| 5 | transient blip | transient by shape (D-43) | every background finding |
+| 6 | *(none)* | anything else, including unclassified reasons | 06's `LALALALA` |
+
+**Ordering principle: a pattern that names the failure *mechanism* outranks one
+that names its *trigger*,** because the trigger is already stated by the causal
+edge and the mechanism is not stated anywhere else. So 06 reads *"capacity
+issue"*, and the rollout that provoked it appears one line below as the edge.
+
+**Two deliberate abstentions.**
+
+*A deploy marker gets no pattern.* Rule 4 as written would fire on the rollout
+itself — `RootOf(i) == i`, and it is a deploy marker — labelling a successful
+deployment a "deploy-correlated failure". It is an anchor, not a failure.
+Row 0 catches it before anything else can.
+
+*An unclassified reason gets no pattern.* 06's `LALALALA` is transient by every
+shape measure and row 5 would call it a transient blip. Handing a diagnosis
+label to a reason the taxonomy could not interpret is precisely the confident
+wrongness the `CategoryUnclassified` fallback exists to avoid. It is reported,
+uninterpreted, exactly as classification left it.
+
+**Rejected:** a set of patterns per finding rather than one. It is more truthful
+— 06 really is both — and it makes the output a bag of labels to read rather
+than a category to scan, in a report whose entire premise is that the reader is
+under time pressure. The full truth is still recoverable: it is the pattern line
+plus the edge line.
+
+---
+
+### D-43 — "Transient" is a conjunction of three named bounds
+
+**Status:** Accepted — closes half of O-02
+
+Measured across all six captures, per finding:
+
+| | count | pods | span |
+|---|---|---|---|
+| background findings (3 in every file) | 1–3 | 1 | 0–16s |
+| real problems (02, 03, 04, 06) | 18–222 | 3–6 | 7m49s–26m6s |
+
+```go
+transientCount = 10   // gap is (3, 18); mid-gap
+transientPods  = 1    // not a threshold: one instance, or the workload
+transientSpan  = 60s  // gap is (16s, 4m31s)
+```
+
+**Why a conjunction rather than the count alone.** Count alone separates the
+corpus with a 6× margin and would be simpler. But 05's
+`data-pipeline/Evicted[disk-pressure]` is `n=3` across **3 pods** over
+**4m31s** — count alone calls that a blip, and it is part of a node-wide
+incident. Blast radius and duration are independent axes from volume, and a
+definition of "transient" that reads only volume is wrong on its face.
+
+**`transientPods = 1` is not a tuned number.** It is the boundary between one
+instance misbehaving and the workload misbehaving. The comparison is `<= 1`
+rather than `== 1` because a Node or Deployment finding carries no pods at all
+(D-30), and node-4's condition must be able to be transient by shape — it is
+kept by D-44's second clause, not by pretending it is large.
+
+**`transientSpan` is inert on this corpus and is included anyway.** No finding
+in any capture is decided by it: nothing with `count <= 10` and `pods <= 1` has
+a span over 16s. It is here because the alternative is a tool that prints
+"transient blip" beside a pod that has failed once a minute for twenty minutes.
+Its bounds are still observed, not invented — 3.75× above the background ceiling
+and 4.5× below the shortest real problem.
+
+**Measured and dropped: occupancy.** The plan called for "minutes occupied" —
+distinct wall-clock minutes containing at least one event — to separate a dense
+crash-loop from a sparse trickle. Computed over the corpus it is 1–2 for every
+background finding and 5–22 for every real one, which is a clean separation that
+`span` already makes identically. A fourth metric that never changes an answer
+is a fourth metric to explain. Dropped.
+
+---
+
+### D-44 — Suppression is `issue ∧ transient ∧ unexplained ∧ non-explanatory`
+
+**Status:** Accepted — closes O-02, un-parks the predicate D-34 anticipated;
+first clause strengthened by D-46
+
+The controlling evidence, three findings from the corpus:
+
+| | n | pods | span | parent | children |
+|---|---|---|---|---|---|
+| 01 `data-pipeline/Evicted[memory-pressure]` | 1 | 1 | 0s | −1 | 0 |
+| 05 `auth-service/Evicted[disk-pressure]` | 1 | 1 | 0s | **3** | 0 |
+| 05 `node-4/NodeHasDiskPressure` | 1 | 0 | 0s | −1 | **6** |
+
+**Identical on every shape metric, and they need three different verdicts.** The
+first is background noise that must not be reported. The second is a pod killed
+by a dying node. The third is the single most important line in that capture. No
+threshold on count, pods, span or occupancy can separate them, because there is
+nothing there to separate. Only the forest can.
+
+```
+suppress(i) := Category == Issue
+             ∧ transient(Findings[i])          // D-43 — it is small
+             ∧ Edges[i].Parent == noParent      // nothing explains it
+             ∧ len(Children(i)) == 0            // and it explains nothing
+```
+
+**The fourth clause is not decoration.** Without it node-4's condition — `n=1`,
+`pods=0`, `span=0`, a root — is suppressed, and with it goes the entire
+`05-test-b` incident, since every one of its six evictions hangs off it.
+
+**Why `Category == Issue` guards the whole thing.** 06's `LALALALA` is
+transient, unexplained and childless, and would be suppressed. But
+`CategoryUnclassified` exists precisely so that a reason we cannot interpret is
+*surfaced demoted rather than buried* — suppressing it re-buries it and defeats
+the category. Deploy markers are excluded by the same clause, which is correct
+for a different reason: a marker with no children is a rollout that broke
+nothing, and there is no shape argument for hiding it.
+
+**Result across the corpus:**
+
+| Fixture | findings | suppressed | reported |
+|---|---|---|---|
+| 01-healthy | 3 | **3** | **0** |
+| 02-memory-leak | 5 | 3 | 2 |
+| 03-image-pull-failure | 6 | 3 | 3 |
+| 04-test-a | 5 | 3 | 2 |
+| 05-test-b | 10 | 3 | 7 |
+| 06-test-c | 6 | 3 | 3 |
+
+**Exactly three per capture, in every capture** — the same three shapes each
+time (an `Evicted[memory-pressure]`, a `FailedMount`, an `Unhealthy` ×3). The
+brief plants an identical background floor in all six files. A predicate tuned to
+one file would not land on the same three in the other five, so this is
+corroboration rather than a fit.
+
+`01-healthy` reports nothing. That was the point.
+
+---
+
+### D-45 — Suppressed findings are counted and disclosed, never deleted
+
+**Status:** Accepted
+
+`Suppressed` is a field on the diagnosis, not a filter applied inside
+`diagnose`. The header states the count, the same way it already states skipped
+and unrecognised records:
+
+```
+20,000 records, 19,772 filtered as noise, 3 suppressed as background, 7 findings
+```
+
+This is the same rule the pipeline already follows twice — D-09 keeps noise
+records in `Result.Records`, and the decoder discloses its skip count so a
+truncated capture cannot look like a clean one. It is what makes an aggressive
+threshold safe: the worst case for a mis-tuned `transientCount` is a line the
+reader has to ask about, not a fact that silently left the building.
+
+It also keeps `report` honest under its own prohibition — it renders what it is
+given and decides nothing — while leaving room for a `--all` flag to render the
+suppressed rows without any stage having to re-derive them.
+
+---
+
+### D-46 — An unrecognised reason is never labelled and never suppressed
+
+**Status:** Accepted — strengthens the `Category == Issue` guard in D-42 and D-44
+
+**How it surfaced.** `06-test-c.jsonl`'s planted probe record was internally
+inconsistent: `severity_text: "Normal"` alongside `severity_number: 13`, which is
+Warning. Corrected to Warning, it stops taking the fallback's Normal branch —
+`CategoryUnclassified` — and takes the Warning branch instead, which promotes it
+to `CategoryIssue` with `Recognised: false`.
+
+That walked it straight past both guards as written. It is one occurrence, one
+pod, zero span, a root with no children: **transient, unexplained, unexplanatory,
+and now an issue.** D-44's predicate would have suppressed it, and D-42's table
+would have labelled it a transient blip.
+
+The record argues against both, in its own body:
+
+> *"In case there are some new events that we haven't really recognized and
+> handled, we'd much rather surface it, instead of burying it"*
+
+**The principle, which is what actually changed.** Suppressing a finding is a
+claim to understand it well enough to know it does not matter. Naming its pattern
+is a claim to know what kind of thing it is. Neither claim can be made about a
+reason that is not in the taxonomy — that is the entire premise of the
+conservative fallback, and letting shape override it re-buries exactly what the
+fallback exists to surface.
+
+So `Recognised` is carried from `classify.Classification` through
+`group.Finding` to the diagnose stage, and one predicate governs both questions:
+
+```go
+func diagnosable(f group.Finding) bool {
+	return f.Category == classify.CategoryIssue && f.Recognised
+}
+```
+
+One function rather than two checks, because the two must not drift: **a finding
+we decline to categorise is exactly a finding we may not dismiss.**
+
+**Why this is better than the guard it replaces.** `Category == Issue` excluded
+unclassified reasons only by side effect — they happen to sit in a different
+category. The moment severity moved, the side effect stopped holding. Keying on
+`Recognised` states the actual reason and covers both fallback branches at once.
+
+**Consequence for coverage.** No capture now exercises the
+`CategoryUnclassified` branch; `classify`'s own tests do, and the triage test
+says so explicitly rather than leaving the gap silent.
+
+---
+
+### D-47 — The healthy result is a rendered answer, not an empty table
+
+**Status:** Accepted
+
+`no issues detected` becomes:
+
+```
+✓  ALL CLEAR
+
+   No findings. Nothing here needs an on-call response.
+   3 transient blips held back as background -- each explained by nothing,
+   and explaining nothing.
+```
+
+**Why it earns the space.** A clean capture is a real answer, not the absence of
+one, and it is the answer a reader at 3am most needs to trust at a glance. It is
+also the single output most likely to be misread: a tool that prints nothing is
+indistinguishable from a tool that failed.
+
+**Why the second line is not optional.** "No findings" from a tool that quietly
+suppressed three things is a claim the reader cannot check. D-45 rests on the
+suppressed count staying visible, and the all-clear is the one output where there
+is nothing else on screen to carry it. Where nothing was held back it says so
+instead — silence because there was nothing, not silence because we filtered.
+
+**On the colour.** Green is the palette's fourth entry and the only one that is
+not a severity, which nominally weakens the "three conventional colours and
+nothing else" rule the table follows. It is admitted because it appears on
+exactly one line and that line never coexists with a table, so no scan is made
+harder by it. The emphasis-only contract still holds and is tested on this path
+specifically: strip the escapes and the styled rendering is byte-identical to the
+plain one, so the captured output files the brief requires still read as
+sentences.
+
+---
+
 ## Open
 
 ### O-01 — Package layout
@@ -989,12 +1317,17 @@ carries godoc.
 D-17 collapses correlation into an on-demand function, which may not warrant its
 own package. Needs an ADR.
 
-### O-02 — Pattern thresholds
+### O-02 — Pattern thresholds  *(CLOSED by D-43 and D-44)*
 
 D-26 requires numeric thresholds for burst / sustained / recurring /
 deploy-correlated / capacity / node-issue. Each must be a named constant with
 its derivation recorded (`engineering-standards.md` §3.2: _"numbers are never
 magic"_).
+
+Settled at three constants, not six: only "transient" needs numbers at all.
+Every other pattern is decided by a rule ID, a body substring or the root of the
+incident, and the suppression that the thresholds feed is a conjunction with the
+forest rather than a threshold on its own.
 
 ### O-03 — Deploy-correlation window  *(CLOSED by D-33)*
 

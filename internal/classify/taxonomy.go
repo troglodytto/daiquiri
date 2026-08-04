@@ -6,6 +6,22 @@ import (
 	"github.com/troglodytto/daiquiri/internal/event"
 )
 
+// Rule identifiers that are read outside this package.
+//
+// Every row in the taxonomy has an id, and most are written as literals at the
+// row that owns them, because nothing else ever names them. These three are
+// different: the diagnose stage keys its pattern table on them, so a typo in
+// either place would silently stop a pattern from ever firing. Naming them makes
+// that a compile error.
+const (
+	// RuleCrashLoop is a Warning-severity BackOff: a container restarting.
+	RuleCrashLoop = "backoff/crash-loop"
+	// RuleOOMKilled is a container killed by the kernel for exceeding its limit.
+	RuleOOMKilled = "oom-killed"
+	// RuleFailedScheduling is a pod the scheduler could not place.
+	RuleFailedScheduling = "failed-scheduling"
+)
+
 // rule is one row of the taxonomy.
 //
 // Rules for a reason are tried in order and the first match wins, so a reason's
@@ -66,7 +82,7 @@ var taxonomy = map[string][]rule{
 	// noise: a Normal-severity BackOff is a repeated image-pull retry.
 	"BackOff": {
 		{
-			id:           "backoff/crash-loop",
+			id:           RuleCrashLoop,
 			whenSeverity: &warning,
 			category:     CategoryIssue,
 			severity:     event.SeverityCritical,
@@ -112,7 +128,7 @@ var taxonomy = map[string][]rule{
 	// on its own.
 	"OOMKilling": {
 		{
-			id:       "oom-killed",
+			id:       RuleOOMKilled,
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "container exceeded its memory limit and was killed by the kernel",
@@ -140,7 +156,7 @@ var taxonomy = map[string][]rule{
 
 	"FailedScheduling": {
 		{
-			id:       "failed-scheduling",
+			id:       RuleFailedScheduling,
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
 			cause:    "pod cannot be placed; insufficient resources or unsatisfied taints",
