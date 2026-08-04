@@ -113,8 +113,8 @@ func run(args []string, stderr io.Writer) int {
 
 // readBufferBytes sizes the buffered reader wrapping the input file.
 //
-// Ingest is dominated by JSON parsing, not I/O -- reading all 16MB of a capture
-// without parsing it measures 2.2ms against 115ms for the full decode -- so
+// Ingest is dominated by JSON parsing, not I/O; reading all 16MB of a capture
+// without parsing it measures 2.2ms against 115ms for the full decode; so
 // this is comfortably large rather than tuned. Raising it further has nothing
 // left to win.
 const readBufferBytes = 256 * 1024

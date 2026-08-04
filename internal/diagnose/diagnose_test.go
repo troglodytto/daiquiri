@@ -59,7 +59,7 @@ const root = -1
 // TestTransientNeedsAllThreeBounds covers D-43. Volume, blast radius and
 // duration are independent axes, and a finding that is small on one of them is
 // not a blip. 05-test-b's disk-pressure eviction of data-pipeline is three
-// occurrences -- small -- across three pods over four and a half minutes, which
+// occurrences; small; across three pods over four and a half minutes, which
 // is not transient by any reading.
 func TestTransientNeedsAllThreeBounds(t *testing.T) {
 	tests := []struct {
@@ -83,10 +83,6 @@ func TestTransientNeedsAllThreeBounds(t *testing.T) {
 }
 
 // TestSuppressionNeedsAllFourClauses is the core of D-44.
-//
-// The three shapes below are byte-identical on every shape metric -- one
-// occurrence, at most one pod, zero span -- and need three different verdicts.
-// No threshold can separate them. Only the forest can.
 func TestSuppressionNeedsAllFourClauses(t *testing.T) {
 	// 01-healthy's decoy: nothing explains it, it explains nothing.
 	decoy := issue("data-pipeline", "evicted/memory-pressure", 1, 1, 0)
@@ -127,11 +123,6 @@ func TestSuppressionNeedsAllFourClauses(t *testing.T) {
 }
 
 // TestSuppressionOnlyAppliesToIssues covers the guard in D-44.
-//
-// CategoryUnclassified exists so a reason the taxonomy cannot interpret is
-// surfaced demoted rather than buried. Suppressing it on shape re-buries it and
-// defeats the category. A deploy marker with no children is a rollout that broke
-// nothing, which is worth a line.
 func TestSuppressionOnlyAppliesToIssues(t *testing.T) {
 	unclassified := group.Finding{
 		Kind: event.KindPod, Workload: "data-pipeline", Namespace: "data",
@@ -159,12 +150,7 @@ func TestSuppressionOnlyAppliesToIssues(t *testing.T) {
 // makes the argument itself: "In case there are some new events that we haven't
 // really recognized and handled, we'd much rather surface it, instead of burying
 // it." It is a CategoryIssue, and it is transient, unexplained and childless on
-// every measure -- so shape alone would suppress it.
-//
-// It must not be. Suppressing a finding claims we understand it well enough to
-// know it does not matter, and the conservative fallback exists precisely
-// because we do not understand this one. The same claim bars naming a pattern
-// for it.
+// every measure; so shape alone would suppress it.
 func TestAnUnrecognisedReasonIsNeitherLabelledNorBuried(t *testing.T) {
 	probe := issue("data-pipeline", "unrecognised-warning", 1, 1, 0)
 	probe.Reason = "LALALALA"
@@ -240,11 +226,6 @@ func TestSchedulingWithoutInsufficientResourcesIsNotCapacity(t *testing.T) {
 }
 
 // TestCrashLoopKeysOnRuleNotReason is why classify carries a rule ID at all.
-//
-// Both findings below have reason BackOff. One is a container restarting on a
-// memory leak; the other is a kubelet retrying an image pull it will never win.
-// The brief names them as two different patterns, and only the rule tells them
-// apart.
 func TestCrashLoopKeysOnRuleNotReason(t *testing.T) {
 	marker := group.Finding{
 		Kind: "Deployment", Workload: "payment-service", Reason: "ScalingReplicaSet",

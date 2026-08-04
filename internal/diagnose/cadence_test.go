@@ -64,7 +64,7 @@ func TestCadenceIsMeasuredPerObject(t *testing.T) {
 		"the probe period, not the rate at which the fleet as a whole complains")
 }
 
-// TestCadenceNeedsEnoughIntervals -- below the minimum the answer would be
+// TestCadenceNeedsEnoughIntervals; below the minimum the answer would be
 // arithmetic on noise, so there is no answer.
 func TestCadenceNeedsEnoughIntervals(t *testing.T) {
 	c := cadenceOf(t, beats(1, 0, 10*time.Second, 20*time.Second))
@@ -91,7 +91,7 @@ func TestTrendClassification(t *testing.T) {
 		at += gap
 	}
 
-	// mild: 02-memory-leak's shape -- intervals contracting by about a fifth,
+	// mild: 02-memory-leak's shape; intervals contracting by about a fifth,
 	// which is visible and below the threshold.
 	mild := []time.Duration{0}
 	for i, at := 0, time.Duration(0); i < 11; i++ {
@@ -145,7 +145,7 @@ func TestCadencePublishesTheHalvesItJudged(t *testing.T) {
 	assert.GreaterOrEqual(t, c.Longest, c.Median)
 }
 
-// TestUnitIsPodsOnlyForPodFindings -- "per node" beside a node condition would
+// TestUnitIsPodsOnlyForPodFindings; "per node" beside a node condition would
 // imply a comparison across nodes that was never made.
 func TestUnitIsPodsOnlyForPodFindings(t *testing.T) {
 	pods := beats(2, 0, 10*time.Second, 20*time.Second, 30*time.Second)

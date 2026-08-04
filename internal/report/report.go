@@ -1,16 +1,5 @@
 // Package report renders a triage result for a human reading it under time
 // pressure.
-//
-// Prohibitions. report decides nothing. It does not classify, coalesce, rank by
-// anything other than the order it is given, or interpret a finding. If a fact
-// is not already on the Result, report does not compute it -- a renderer that
-// derives conclusions is a second, invisible analysis stage.
-//
-// Two output modes, one layout. Styling is emphasis only: strip the escape
-// sequences from the styled rendering and it is byte-identical to the plain
-// one, so no fact is ever carried by colour alone. This is not decoration
-// policy -- the submission requires captured stdout files, and a grader opening
-// a file full of escape sequences is reading noise.
 package report
 
 import (
@@ -41,7 +30,7 @@ const (
 
 // palette holds the styles for one renderer.
 //
-// Per-renderer rather than package-level because lipgloss decides whether a
+// Per-renderer because lipgloss decides whether a
 // style emits anything from the colour profile of the renderer that built it.
 // Severity colours are the conventional three and nothing else is coloured: a
 // table where every column is tinted is a table nobody can scan.
@@ -51,7 +40,7 @@ type palette struct {
 	healthy                     lipgloss.Style
 
 	// Incident-view styles. The tree carries more kinds of text than the table
-	// does -- a diagnosis, a quoted record, prose evidence, two badges -- and
+	// does; a diagnosis, a quoted record, prose evidence, two badges; and
 	// they need to be distinguishable without any of them shouting.
 	pattern, signature, evidence, edge lipgloss.Style
 	rootTag, pagedTag, tracedTag       lipgloss.Style
@@ -67,16 +56,16 @@ func paletteFrom(lr *lipgloss.Renderer) palette {
 		infoDull: lr.NewStyle().Faint(true),
 
 		// The fourth colour, and the only one that is not a severity. It appears
-		// on exactly one line, which never coexists with a table -- so the "three
+		// on exactly one line, which never coexists with a table; so the "three
 		// conventional colours" rule the palette follows is not weakened by it.
 		healthy: lr.NewStyle().Bold(true).Foreground(lipgloss.Color("2")),
 
-		// The diagnosis is italic rather than coloured: it is a label, and the
+		// The diagnosis is italic: it is a label, and the
 		// row's colour is already spent on severity.
 		pattern: lr.NewStyle().Italic(true).Foreground(lipgloss.Color("5")),
 
 		// A quoted record body is the most literal thing on screen, so it is the
-		// least decorated -- plain, at full brightness.
+		// least decorated; plain, at full brightness.
 		signature: lr.NewStyle().Foreground(lipgloss.Color("7")),
 
 		// Our prose about the data, as opposed to the data. Dimmed and italic so
@@ -86,7 +75,7 @@ func paletteFrom(lr *lipgloss.Renderer) palette {
 		// Structure glyphs only, never text.
 		edge: lr.NewStyle().Foreground(lipgloss.Color("6")),
 
-		// The two badges are inverted rather than merely coloured: they are the
+		// The two badges are inverted: they are the
 		// only things in the report a reader should be able to find without
 		// reading, and inversion survives a colour scheme that mangles hues.
 		rootTag:  lr.NewStyle().Bold(true).Foreground(lipgloss.Color("0")).Background(lipgloss.Color("3")),
@@ -117,16 +106,13 @@ type Renderer struct {
 //
 // This is the 3am path: you are paged for one service, and what you need is not
 // every incident in the cluster but the trail from your symptom back to its
-// origin -- which in 05-test-b runs from an evicted pod to a node that filled
+// origin; which in 05-test-b runs from an evicted pod to a node that filled
 // its disk, through nothing your service did.
-//
-// Incidents that do not involve it are counted in one line rather than dropped.
-// A filtered report that does not say what it filtered can mislead by omission.
 func (r *Renderer) Trace(workload string) *Renderer {
 	r.trace = workload
 
 	// Tracing implies the incident view. The table has no notion of a trail, so
-	// narrowing it to one workload would just hide rows -- and a caller who
+	// narrowing it to one workload would just hide rows; and a caller who
 	// asked to follow a thread wants the thread.
 	r.view = ViewTree
 
@@ -134,13 +120,6 @@ func (r *Renderer) Trace(workload string) *Renderer {
 }
 
 // View selects what the renderer produces.
-//
-// The two views answer different questions and the default is both, in the
-// order a reader needs them: the table is the inventory -- everything that is
-// wrong, at a glance, prioritised -- and the tree is the argument for what
-// caused it. The brief asks for the first and the north star asks for the
-// second; narrowing to one is a preference, not a trade-off the tool should
-// make on the reader's behalf.
 type View uint8
 
 // Views. The zero value renders both, so a Renderer built with New is complete.
@@ -164,9 +143,6 @@ func (r *Renderer) shows(v View) bool {
 
 // New returns a Renderer that decides for itself whether to style, based on
 // whether w is a terminal.
-//
-// A pipe, a file and a test buffer all render plain. NO_COLOR is honoured
-// because it is the one convention every tool in a terminal agrees on.
 func New(w io.Writer) *Renderer {
 	if !isTerminal(w) || os.Getenv("NO_COLOR") != "" {
 		return &Renderer{w: w}
@@ -176,20 +152,16 @@ func New(w io.Writer) *Renderer {
 }
 
 // NewStyled returns a Renderer that always styles, whatever w is.
-//
-// It exists so the "styling is emphasis only" property can be tested: the test
-// needs both renderings of the same input, and it cannot get the styled one
-// from a buffer otherwise.
 func NewStyled(w io.Writer) *Renderer {
-	// The profile is forced rather than detected. lipgloss inspects its output
+	// The profile is forced. lipgloss inspects its output
 	// to decide whether colour is supported, and a test buffer or a pipe always
-	// answers no -- which would make this constructor silently identical to the
+	// answers no; which would make this constructor silently identical to the
 	// plain one and leave the emphasis-only property untestable. Callers who
 	// want detection use New.
 	//
 	// Set after construction, not via termenv.WithProfile: that option is
 	// consumed when the output is built, and lipgloss then re-detects from the
-	// writer and overrides it back to Ascii. Verified -- the option path yields
+	// writer and overrides it back to Ascii. Verified; the option path yields
 	// termenv profile 3 (Ascii, since termenv numbers TrueColor 0 down to Ascii
 	// 3) and emits no escape sequences at all.
 	lr := lipgloss.NewRenderer(w)
@@ -199,10 +171,6 @@ func NewStyled(w io.Writer) *Renderer {
 }
 
 // isTerminal reports whether w is a character device.
-//
-// Deliberately stdlib rather than a terminal-detection dependency: the only
-// question being asked is whether the destination is a console, and a file mode
-// answers it.
 func isTerminal(w io.Writer) bool {
 	f, ok := w.(*os.File)
 	if !ok {
@@ -264,10 +232,6 @@ func (r *Renderer) Render(res triage.Result) error {
 }
 
 // writeHeader writes the title and the ingest counters.
-//
-// Skipped and unrecognised appear only when non-zero, and they are the two
-// numbers that stop a capture the tool could not fully read from looking like a
-// clean one.
 func (r *Renderer) writeHeader(b *strings.Builder, res triage.Result) {
 	title := "KUBERNETES CLUSTER EVENT TRIAGE"
 	if res.Cluster != "" {
@@ -299,19 +263,9 @@ func (r *Renderer) writeHeader(b *strings.Builder, res triage.Result) {
 }
 
 // writeAllClear writes the healthy-cluster result.
-//
-// A clean capture is a real answer, not the absence of one, and at 3am it is the
-// answer the reader most wants to be able to trust at a glance -- so it gets a
-// line of its own and the one colour in the palette that is not a severity.
-//
-// It states what was held back in the same breath. "No findings" from a tool
-// that quietly suppressed three things is a claim the reader cannot check, and
-// the whole suppression design rests on the count being visible. Where nothing
-// was held back, the sentence says that instead: silence because there was
-// nothing, not silence because we filtered.
 func (r *Renderer) writeAllClear(b *strings.Builder, res triage.Result) {
-	// The brief names this string outright -- "your tool should output 'no issues
-	// detected' and exit 0" -- so it is present verbatim rather than paraphrased,
+	// The brief names this string outright; "your tool should output 'no issues
+	// detected' and exit 0"; so it is present verbatim rather than paraphrased,
 	// and the emphasis is built around it instead of replacing it.
 	fmt.Fprintf(b, "\n%s\n\n", r.paint(r.style.healthy, "✓  ALL CLEAR — no issues detected"))
 	fmt.Fprintln(b, "   Nothing here needs an on-call response.")
@@ -370,8 +324,7 @@ func (r *Renderer) writeTable(b *strings.Builder, c diagnose.Chart, reported []i
 			cells[i] = pad(col.rows[row], widths[i], col.rightA)
 		}
 
-		// The whole row takes the severity colour rather than the severity cell
-		// alone: at a glance the eye is looking for the critical line, not for a
+		// The whole row takes the severity colour, because at a glance the eye is looking for the critical line, not for a
 		// critical word.
 		fmt.Fprintln(b, r.paint(r.severityStyle(c.Findings[at].Severity), strings.TrimRight(strings.Join(cells, gap), " ")))
 	}
@@ -417,9 +370,6 @@ func columnsOf(c diagnose.Chart, reported []int) []column {
 }
 
 // pattern renders the diagnosis, or a dash where naming one would be a guess.
-//
-// A dash rather than an empty cell, for the same reason as nodes: a blank reads
-// as missing data, and the abstention here is deliberate.
 func pattern(d diagnose.Diagnosis) string {
 	if d.Pattern == diagnose.PatternNone {
 		return "-"
@@ -430,9 +380,8 @@ func pattern(d diagnose.Diagnosis) string {
 
 // window renders how long the finding lasted.
 //
-// A point event -- a deploy marker, a node condition -- has no duration, and
-// showing "0s" for it invites reading it as a measurement rather than as an
-// instant.
+// A point event; a deploy marker, a node condition; has no duration, and
+// showing "0s" for it invites reading it as a measurement.
 func window(f group.Finding) string {
 	d := f.LastSeen.Sub(f.FirstSeen)
 	if d <= 0 {
@@ -443,11 +392,6 @@ func window(f group.Finding) string {
 }
 
 // scope renders how many pod instances the finding spans.
-//
-// A dash rather than a count for findings that are not about pods: a rollout and
-// a node condition each concern exactly one object, and printing "1" there
-// invites reading it as "one pod affected", which is a different and false
-// claim.
 func scope(f group.Finding) string {
 	if len(f.Pods) == 0 {
 		return "-"
@@ -457,10 +401,6 @@ func scope(f group.Finding) string {
 }
 
 // nodes renders the blast radius across nodes.
-//
-// Empty for scheduler and controller events, which no kubelet emitted. That
-// absence is normal, so it renders as a dash rather than as nothing -- an empty
-// cell reads as missing data.
 func nodes(f group.Finding) string {
 	if len(f.Nodes) == 0 {
 		return "-"
@@ -485,7 +425,7 @@ func (r *Renderer) severityStyle(s event.Severity) lipgloss.Style {
 
 // paint applies a style, or returns the string untouched when not styling.
 //
-// The branch is what makes the plain path provably plain: lipgloss is never
+// The branch keeps the plain path provably plain. lipgloss is never
 // called at all, so no escape sequence can reach a captured file however the
 // terminal profile is detected.
 func (r *Renderer) paint(st lipgloss.Style, s string) string {
@@ -497,10 +437,6 @@ func (r *Renderer) paint(st lipgloss.Style, s string) string {
 }
 
 // pad left- or right-aligns s in a field of n columns.
-//
-// Padding happens before styling, never after: an escape sequence has no width
-// on screen but plenty of bytes, and padding a styled string aligns the bytes
-// instead of the glyphs.
 func pad(s string, n int, right bool) string {
 	fill := n - lipgloss.Width(s)
 	if fill <= 0 {

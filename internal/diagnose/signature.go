@@ -8,13 +8,11 @@ import (
 	"github.com/troglodytto/daiquiri/internal/group"
 )
 
-// Volatile tokens: the parts of a record body that identify *which* occurrence
-// rather than *what happened*.
+// Volatile tokens: the parts of a body that say which occurrence this was.
 //
-// Deliberately three, and deliberately not more. Numbers with units are never
-// touched -- 512Mi, 404, 8080 and "0/6 nodes" are the answer this whole feature
-// exists to surface, and a normaliser that ate them would delete the diagnosis
-// along with the noise.
+// Three, and no more. Numbers with units are never touched. 512Mi, 404, 8080
+// and "0/6 nodes" are the answer, and a normaliser that ate them would delete
+// the diagnosis with the noise.
 var (
 	// podToken matches <workload>-<9 hex>-<5 alnum>, the pod instance name.
 	podToken = regexp.MustCompile(`[a-z][a-z0-9-]*-[0-9a-f]{9}-[0-9a-z]{5}`)
@@ -33,7 +31,7 @@ var (
 	// concreteNoun decides specificity: a quoted string, or a surviving digit.
 	//
 	// After normalisation the volatile digits are gone, so a digit that remains
-	// is a fact about the failure -- a status code, a resource amount, a port, a
+	// is a fact about the failure; a status code, a resource amount, a port, a
 	// node tally. A quoted string is a name the cluster chose to quote: an image
 	// reference, a volume, a configmap.
 	concreteNoun = regexp.MustCompile(`"[^"]+"|\d`)
@@ -48,8 +46,8 @@ type Signature struct {
 	Count int
 
 	// Specific marks a signature that names something concrete. Generic
-	// signatures restate the reason -- "Error: ImagePullBackOff" beside a
-	// finding whose reason is already Failed -- and are rendered as such.
+	// signatures restate the reason; "Error: ImagePullBackOff" beside a
+	// finding whose reason is already Failed; and are rendered as such.
 	Specific bool
 
 	// Means is what this particular body proves, where the finding's own
@@ -61,21 +59,10 @@ type Signature struct {
 	Means string
 }
 
-// reading is one row of the signature interpretation table.
+// reading is one row of the signature interpretation table. The taxonomy
+// interprets reasons; this interprets signature shapes.
 //
-// The taxonomy interprets reasons; this interprets signature shapes. It exists
-// because one reason can carry situations that mean opposite things: an
-// Unhealthy body reading "connection refused" proves nothing was listening,
-// while one reading "statuscode: 404" proves the server was listening and
-// answering. The finding-level meaning cannot be right for both.
-//
-// Splitting the taxonomy rule instead would have been the obvious move -- Failed
-// already does it -- but Rule is in the coalescing key, so it would fragment
-// 04-test-a's one broken deployment into three findings.
-//
-// First match wins, so narrower rows come first. A signature matching no row
-// carries no reading, which is the same abstention the classifier makes for a
-// reason it cannot read.
+// First match wins, so narrower rows come first. See D-57.
 type reading struct {
 	name  string
 	all   []string // every substring must be present
@@ -83,15 +70,9 @@ type reading struct {
 }
 
 // readings covers only shapes the captures actually contain.
-//
-// No row for HTTP 500 or 503, for "no route to host", or for TCP-probe
-// failures: none appears in any capture, and a body matcher nobody has ever
-// seen fire is a guess wearing a rule's clothes. OOMKilling already proved that
-// trap -- the brief's own example body text would never have matched a real
-// record.
 var readings = []reading{
 	// The three readiness outcomes in 04-test-a, which interleave for the whole
-	// 7m49s rather than resolving into phases.
+	// 7m49s.
 	{
 		name:  "probe/http-status",
 		all:   []string{"probe failed", "statuscode:"},
@@ -155,10 +136,6 @@ func readingOf(text string) string {
 //
 //	Error: ImagePullBackOff                                   18 of 24
 //	Failed to pull image "...:v2.14.0-rc3": manifest not found  3 of 24
-//
-// The rarest line is the only one that says anything; the common one is a
-// paraphrase of the REASON column. Leading with it buries the answer under a
-// restatement of the question.
 func signaturesOf(f group.Finding) []Signature {
 	counts := make(map[string]int, len(f.Events))
 	for _, e := range f.Events {

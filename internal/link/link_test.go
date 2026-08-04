@@ -99,7 +99,7 @@ func TestSamePodLinks(t *testing.T) {
 }
 
 // TestNodeConditionLinksWhenTheBodyNamesIt covers 05. The evicted pod's own
-// record names the condition that evicted it -- the cluster states the cause,
+// record names the condition that evicted it; the cluster states the cause,
 // so the edge is proven rather than inferred.
 func TestNodeConditionLinksWhenTheBodyNamesIt(t *testing.T) {
 	f := link.Build([]group.Finding{
@@ -146,7 +146,7 @@ func TestNodeConditionRejectsADifferentNode(t *testing.T) {
 }
 
 // TestDeployLinksOnlyPodsOfTheNamedReplicaSet covers 03/04/06 and D-36. Same
-// workload is not enough -- the failing pods must belong to the replica set the
+// workload is not enough; the failing pods must belong to the replica set the
 // rollout actually created.
 func TestDeployLinksOnlyPodsOfTheNamedReplicaSet(t *testing.T) {
 	t.Run("pods from the scaled replicaset link", func(t *testing.T) {

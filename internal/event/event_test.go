@@ -46,10 +46,6 @@ func TestSeverityZeroValueIsInfo(t *testing.T) {
 }
 
 // TestObjectWorkload covers the owner derivation that grouping keys on.
-//
-// Measured across the six provided captures: 94,686 Pod names and 25,311
-// ReplicaSet names, all matching their shape exactly, over twelve distinct
-// workloads none of which itself ends in a hash-shaped segment.
 func TestObjectWorkload(t *testing.T) {
 	tests := []struct {
 		name string

@@ -130,11 +130,6 @@ func TestCoalesceMergesAcrossNodes(t *testing.T) {
 // TestCoalesceCountsOccurrencesNotRecords covers the pipeline shape the brief
 // requires but the fixtures cannot exercise: k8s.event.count is 1 for all
 // 120,001 provided records, so this path is only reachable synthetically.
-//
-// When the API server re-emits a log line each time it increments count, one
-// logical event arrives repeatedly with a rising count. Summing Count
-// double-counts; counting records under-counts. The occurrence total is the
-// highest count seen per distinct event UID, summed across UIDs.
 func TestCoalesceCountsOccurrencesNotRecords(t *testing.T) {
 	mk := func(uid string, count int, ts time.Time) group.Classified {
 		c := pod("checkout-service-7d4f8b9c5-005e2", "production", "BackOff", "node-2", "backoff/crash-loop", ts)
@@ -156,8 +151,8 @@ func TestCoalesceCountsOccurrencesNotRecords(t *testing.T) {
 }
 
 // TestCoalesceIsDeterministic guards the trap that Go randomises map iteration
-// order. Sorting findings on FirstSeen alone leaves ties -- 05-test-b has
-// several evictions inside the same second -- so the sort must run through the
+// order. Sorting findings on FirstSeen alone leaves ties; 05-test-b has
+// several evictions inside the same second; so the sort must run through the
 // whole key. Without it, two runs on identical input differ and golden tests
 // fail intermittently, which is the worst way to discover this.
 func TestCoalesceIsDeterministic(t *testing.T) {
@@ -186,7 +181,7 @@ func TestCoalesceEmptyInput(t *testing.T) {
 //
 // Pods was built from k8s.object.name without checking the kind, so a Node
 // finding carried Pods=["node-4"] and a rollout carried Pods=["payment-service"]
-// -- a field named Pods holding a node and a deployment. The report counted
+// ; a field named Pods holding a node and a deployment. The report counted
 // those as pods, and the same-pod causal rule could fire between two non-pods
 // and print evidence reading "same pod node-4", which is text that ends up
 // quoted in the analysis report.

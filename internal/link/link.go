@@ -1,50 +1,15 @@
-// Package link derives the causal structure over coalesced findings.
+// Package link works out what explains each finding, and writes down why.
 //
-// It answers one question, asked of every finding: what explains this? The
-// answer is at most one parent, plus the evidence for that claim written so a
-// human can check it against the capture.
+// Build is O(R·n²) with R=4 rules. n counts distinct failure modes, not
+// records: 20,000 records produce 3 to 10 findings, so the quadratic term is
+// over something that doesn't grow with input size. Measured at n=10, 30µs;
+// at a synthetic n=1,000, 32ms.
 //
-// # Structure
-//
-// A forest, stored as a parent array over findings already sorted by FirstSeen.
-// One int per finding; -1 is a root. The invariant Parent < index does all the
-// safety work: Build only ever scans backwards, so cycles are structurally
-// impossible -- there is no visited set, no cycle check and no error path -- and
-// the time ordering is already a topological order.
-//
-// # Prohibitions
-//
-// link decides nothing about severity, shape or suppression; those are the
-// diagnose stage's. It never mutates a finding. It reads only the findings it is
-// given -- never the raw record stream -- because everything it needs is already
-// carried on them.
-//
-// # Complexity
-//
-// Build is O(R·n²) with R=4 rules and n findings: rule priority outer, backwards
-// scan inner. Roots and Children are O(n); RootOf is O(depth). Space is O(n)
-// edges at ~32 bytes each.
-//
-// n counts findings, not records -- distinct (workload, namespace, reason, rule)
-// tuples, which track the number of distinct failure modes rather than event
-// volume. Measured on the provided captures: 20,000 records produce 3 to 10
-// findings, so the quadratic term is over a quantity that does not grow with
-// input size. Measured: n=10 takes 30µs, and a synthetic n=1,000 -- two orders
-// of magnitude beyond anything the corpus produces -- takes 32ms, against a 5s
-// budget.
-//
-// # Why not an overlap-based structure
-//
-// Interval trees and sweep lines answer "which intervals overlap", which is the
-// wrong question in both directions. Every causal edge in the provided captures
-// is between a cause that is an *instant* and an effect that begins after it, so
-// they never overlap at all -- an overlap test would miss every deploy
-// correlation and the whole node-pressure incident. Meanwhile 02 contains a
-// readiness blip that sits fully inside a memory leak's interval and shares a
-// node with it, which an overlap test would wrongly link.
-//
-// The real criterion is ordering plus a named shared dimension. Ordering is one
-// scalar comparison, which is why a sorted slice suffices.
+// Interval trees and sweep lines were considered and rejected. Every causal edge
+// here runs from an instant to an effect that begins after it, so nothing
+// overlaps and an overlap test finds none of them. Meanwhile 02 has a readiness
+// blip sitting inside a memory leak's interval, on the same node, unrelated.
+// See D-38.
 package link
 
 import (
@@ -58,16 +23,12 @@ import (
 	"github.com/troglodytto/daiquiri/internal/group"
 )
 
-// window bounds how long after a cause an effect may still be attributed to it.
+// window bounds how long after a cause an effect can still be attributed to it.
 //
-// Derived, not chosen. Across the six provided captures every true edge lands
-// between +4.4s and +97.9s, and the nearest false candidate -- an unrecognised
-// record 600s after a rollout of the same workload -- is far outside. Any value
-// in (98s, 600s) produces identical results on the corpus; 300s sits mid-gap, at
-// roughly 3x the largest true edge and half the smallest false one.
-//
-// One constant rather than one per rule: per-rule windows would be tuned to this
-// corpus and therefore overfitted to it.
+// Every true edge in the corpus lands between +4.4s and +97.9s. The nearest
+// false candidate is 600s out. Anything in (98s, 600s) behaves identically;
+// 300s sits mid-gap. One constant, not one per rule, which would overfit. See
+// D-33.
 const window = 300 * time.Second
 
 // Window reports the causal window in force, so output that asserts an edge can
@@ -114,13 +75,8 @@ type Edge struct {
 	// Kind distinguishes a proven edge from a speculative one.
 	Kind Kind
 
-	// Rule names the causal rule that fired.
-	//
-	// Carried rather than left implicit so that callers asking "do these
-	// siblings share an explanation" compare a decision instead of parsing
-	// Evidence, which is display text. The six evictions in 05-test-b all fired
-	// node-condition-named and their Evidence strings all differ, because each
-	// states its own elapsed time.
+	// Rule names the causal rule that fired, so callers asking whether two
+	// edges share an explanation compare a decision instead of parsing prose.
 	Rule string
 
 	// Evidence is printed verbatim beneath the edge. It names the shared
@@ -131,10 +87,6 @@ type Edge struct {
 }
 
 // Forest is the causal structure: findings in time order, one edge each.
-//
-// The two slices are index-coupled, and are held together rather than returned
-// separately so that "same length, same order" cannot be broken by sorting one
-// of them. That failure would produce a wrong diagnosis rather than a crash.
 type Forest struct {
 	// Findings ascend by FirstSeen. Never mutated.
 	Findings []group.Finding
@@ -186,19 +138,11 @@ func (f Forest) Roots() []int {
 }
 
 // IsRoot reports whether nothing in the capture explains finding i.
-//
-// It exists so the sentinel stays private: the diagnose stage's suppression
-// predicate asks this question of every finding, and exporting noParent would
-// invite a caller to compare against a bare -1 that nothing keeps in step with
-// this package.
 func (f Forest) IsRoot(i int) bool {
 	return f.Edges[i].Parent == noParent
 }
 
 // Children returns the indices of findings directly explained by i.
-//
-// The scan starts at i+1 because Parent < index makes anything earlier
-// impossible.
 func (f Forest) Children(i int) []int {
 	var out []int
 
@@ -212,16 +156,10 @@ func (f Forest) Children(i int) []int {
 }
 
 // RootOf walks up from i to the finding nothing explains.
-//
-// Two findings share a root exactly when they are the same incident, which is
-// what lets the report present one node failure rather than seven evictions.
 func (f Forest) RootOf(i int) int {
-	// The walk is bounded by the Parent < index invariant rather than trusting
-	// it. Build cannot violate it, but Forest is an exported struct and a caller
-	// that assembles one by hand -- a test fixture, a decoder for a serialised
-	// chart -- can produce Parent >= index, where an unguarded walk spins
-	// forever instead of failing. Stopping treats a malformed edge as a root,
-	// which is the conservative reading: it claims less, not more.
+	// Bounded by the Parent < index invariant instead of trusting it. Build
+	// can't violate it, but Forest is exported and a hand-built one can, where
+	// an unguarded walk spins forever. A malformed edge reads as a root.
 	for f.Edges[i].Parent != noParent && f.Edges[i].Parent < i {
 		i = f.Edges[i].Parent
 	}
@@ -229,12 +167,7 @@ func (f Forest) RootOf(i int) int {
 	return i
 }
 
-// rule is one row of the causal table.
-//
-// Data, like the event taxonomy: adding a causal relationship is adding a row,
-// never editing a switch. Order is priority, and it runs from the most specific
-// shared dimension to the least -- pod, then node, then workload -- because
-// specificity is evidence strength.
+// rule is one row of the causal table. Adding a relationship is adding a row.
 type rule struct {
 	name  string
 	kind  Kind
@@ -248,7 +181,7 @@ var causalRules = []rule{
 	//
 	// Scoped to pods by construction rather than by a kind check: group leaves
 	// Pods empty for anything that is not a pod, and an empty set intersects
-	// nothing. That is the correct scope for the claim this rule makes -- one
+	// nothing. That is the correct scope for the claim this rule makes; one
 	// running instance experienced both, so the earlier likely caused the later.
 	// Two deliberate rollouts of a Deployment are not cause and effect, and two
 	// conditions on one node want their own rule with their own wording.
@@ -365,9 +298,6 @@ func conditionName(reason string) string {
 var replicaSetNamePattern = regexp.MustCompile(`[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{9}`)
 
 // replicaSetOf extracts the replica set a deploy marker names in its body.
-//
-// The match is required to belong to the marker's own workload, so an unrelated
-// name appearing in a message cannot be mistaken for the one that was scaled.
 func replicaSetOf(f group.Finding) (string, bool) {
 	if f.Category != classify.CategoryDeployMarker {
 		return "", false
@@ -394,10 +324,6 @@ func firstBody(f group.Finding) string {
 }
 
 // firstShared returns the first value present in both slices.
-//
-// A linear scan rather than a set: both slices hold distinct pods or nodes for
-// one finding, which the captures never push past single digits, and building
-// two maps to compare a handful of strings costs more than it saves.
 func firstShared(a, b []string) (string, bool) {
 	for _, x := range a {
 		for _, y := range b {

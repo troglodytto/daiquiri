@@ -40,11 +40,6 @@ func critical(f group.Finding) group.Finding {
 }
 
 // TestMechanismIsShallowestNotDeepest is the bug this type exists to prevent.
-//
-// 03's deepest failure is BackOff, whose cause reads "repeated image-pull
-// retry" -- a consequence. The shallowest failure is Failed, which names the tag
-// that does not exist. The verdict quoted the deepest node and therefore led
-// with the consequence.
 func TestMechanismIsShallowestNotDeepest(t *testing.T) {
 	findings := []group.Finding{
 		marker("payment-service", 0),
@@ -230,7 +225,7 @@ func TestRemediationSubstitutesNodeAndPod(t *testing.T) {
 	})
 }
 
-// TestNoRemediationRendersNothing -- silence beats a vague gesture at
+// TestNoRemediationRendersNothing; silence beats a vague gesture at
 // "investigate further", and an unrecognised reason is exactly the case where we
 // have nothing to say.
 func TestNoRemediationRendersNothing(t *testing.T) {

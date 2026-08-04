@@ -184,7 +184,7 @@ func TestJSONPagedIsNullOnATie(t *testing.T) {
 	assert.Nil(t, paged)
 }
 
-// TestJSONRootHasNoEdge -- null rather than a zero-valued object, because
+// TestJSONRootHasNoEdge; null rather than a zero-valued object, because
 // Parent 0 would read as "explained by finding 0".
 func TestJSONRootHasNoEdge(t *testing.T) {
 	doc := emit(t, deployFailure())
@@ -240,7 +240,7 @@ func TestJSONDisclosesTheCountersEvenAtZero(t *testing.T) {
 	assert.Equal(t, schemaVersionForTest, doc["schema"])
 }
 
-// TestJSONDoesNotEscapeURLs -- a probe address rendered with escaped angle
+// TestJSONDoesNotEscapeURLs; a probe address rendered with escaped angle
 // brackets is unreadable in the one output whose purpose is to be read closely.
 func TestJSONDoesNotEscapeURLs(t *testing.T) {
 	var buf bytes.Buffer
