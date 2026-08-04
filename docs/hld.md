@@ -7,8 +7,8 @@ Governed by `docs/engineering-standards.md`. Every decision below is recorded
 with its alternatives in `docs/decisions.md`; this document states *what* the
 system is, the ledger states *why* and *what lost*.
 
-Status: **Steps 1 and 2 settled. Step 3 designed, thresholds open. Step 4
-outlined.**
+Status: **Steps 1 and 2 implemented and tested. Step 3 designed, thresholds
+open. Step 4 outlined.**
 
 ---
 
@@ -47,13 +47,13 @@ walks back to where the failure started.
   └─────────┬─────────┘  malformed line → counted + skipped, never fatal
             │  []event.Event                              ~20,000
   ┌─────────▼─────────┐
-  │ internal/classify │  STEP 1 — table-driven; noise / issue / marker / unknown
+  │ internal/classify │  STEP 1 — table-driven; noise / unclassified / marker / issue
   └─────────┬─────────┘
             │  partitioned, nothing discarded
   ┌─────────▼─────────┐
-  │      group        │  STEP 2 — coalesce on (Kind, Workload, Namespace, Reason)
+  │  internal/group   │  STEP 2 — coalesce on (Kind, Workload, Namespace, Reason, Rule)
   └─────────┬─────────┘
-            │  []Finding                                      3 … 9
+            │  []group.Finding                               3 … 10
   ┌─────────▼─────────┐
   │     diagnose      │  STEP 4 — shape over time, severity, likely cause
   └─────────┬─────────┘
@@ -80,7 +80,7 @@ Three slices. No graphs, no arenas, no index arithmetic (D-20).
 
 ```go
 records  []event.Event  // 20,000 — every decoded record, retained
-findings []Finding      // 3–9    — coalesced and diagnosed
+findings []group.Finding // 3–10  — coalesced and diagnosed
 trail    []event.Event  // filtered + time-sorted, built on demand, stored nowhere
 ```
 
@@ -103,8 +103,8 @@ if e.Object.Kind == "Node" && e.Node == "" { e.Node = e.Object.Name }
 
 ```go
 type Finding struct {
-    // key — D-11. Node is deliberately absent; see D-12.
-    Kind, Workload, Namespace, Reason string
+    // key — D-11, D-28. Node is deliberately absent; see D-12.
+    Kind, Workload, Namespace, Reason, Rule string
 
     Count     int             // max(Count) per distinct EventUID, summed — D-10
     FirstSeen time.Time
@@ -130,7 +130,7 @@ One pass. Partition, never delete (D-05, D-06).
 |---|---|---|
 | `CategoryIssue` | grouped, reported | 5 … 227 |
 | `CategoryDeployMarker` | grouped, causal candidate | 0 … 1 |
-| `CategoryUnknown` | grouped, demoted to footer — D-09 | 0 … 1 |
+| `CategoryUnclassified` | grouped, demoted to footer — D-09 | 0 … 1 |
 | `CategoryNoise` | **retained**, never narrated | ~19,800 |
 
 The taxonomy is data — a map of reason to ordered rules, first match wins.
@@ -148,7 +148,9 @@ Two domain traps, both already handled:
 
 ## 5. Step 2 — Grouping
 
-Key: `(Kind, Workload, Namespace, Reason)` — D-11. Non-windowed, every
+Key: `(Kind, Workload, Namespace, Reason, Rule)` — D-11, D-28. `Rule` is the
+taxonomy row that fired, so one reason carrying two failure modes (05's
+disk-pressure and memory-pressure evictions) stays two findings. Non-windowed, every
 occurrence timestamp retained — D-16. Sorted on a **total** order (`FirstSeen`,
 then the full key) because Go randomises map iteration and 05 has same-second
 ties — D-13.
@@ -163,7 +165,7 @@ This is the expected output of Step 2 and the basis of the end-to-end tests.
 | 02-memory-leak | **5** | `recommendation-service OOMKilling n=26 pods=4`, `BackOff n=91 pods=4` |
 | 03-image-pull | **6** | `payment-service Failed n=24 pods=3`, `BackOff n=18 pods=3` |
 | 04-test-a | **5** | `checkout-service Unhealthy n=222 pods=5 nodes=3` |
-| 05-test-b | **9** | `NodeHasDiskPressure node-4` + 6 eviction findings across 3 namespaces |
+| 05-test-b | **10** | `NodeHasDiskPressure node-4` + 7 eviction findings, disk- and memory-pressure kept apart |
 | 06-test-c | **6** | `data-pipeline FailedScheduling n=177 pods=6` |
 
 Full expected finding tables live in `testdata/golden/`.
@@ -195,9 +197,11 @@ is then only allowed to *reject*.
 node condition, `OOMKilling`) — not merely the earliest record, which is usually
 a `Pulled`.
 
-**Incidents** = findings bucketed by their root record's event UID. In 05 all
-six eviction findings root to the same `NodeHasDiskPressure` → one incident,
-six symptoms.
+**Incidents** = findings bucketed by their root record's event UID. In 05 the
+seven disk-pressure eviction findings root to the same `NodeHasDiskPressure` →
+one incident, seven symptoms. The eighth eviction finding — memory pressure on
+node-2, thirteen minutes earlier — finds no parent and stays a separate,
+demoted, transient.
 
 **Termination is reported honestly** (D-27): *origin found* versus *trail
 truncated at the capture boundary*, with the second stating what would raise
@@ -239,7 +243,7 @@ output pasted into the commit body; table-driven subtests named for behaviour;
 | `Object.Workload()` | Pod → stripped; ReplicaSet → stripped; Deployment → unchanged; **Node `node-4` → unchanged** (regression: a naive strip mangles it); malformed suffix → unchanged; empty name; a workload whose own name ends in 9 hex chars |
 | Node normalisation | `Kind=Node` with absent `node.name` → `Node == Object.Name`; already-populated `Node` untouched |
 | Taxonomy | every reason in the brief's table; `BackOff`+`Warning` → crash-loop vs `BackOff`+`Normal` → image-pull retry; `Failed` with each of the three image-pull body markers vs without; `Evicted` with `[DiskPressure]` vs without |
-| Classifier fallback | unknown + `Warning` → issue, `Recognised=false`; unknown + `Normal` → `CategoryUnknown` (the `LALALALA` case, D-09) |
+| Classifier fallback | unknown + `Warning` → issue, `Recognised=false`; unknown + `Normal` → `CategoryUnclassified` (the `LALALALA` case, D-09); unnamed + `Normal` → noise |
 | Taxonomy totality | property test: every reason's final rule is unconditional, so classification never falls through |
 
 ### 8.2 Grouping

@@ -20,6 +20,15 @@ type rule struct {
 	// case-sensitive.
 	whenBodyHas []string
 
+	// id is a short stable identifier for this row.
+	//
+	// Grouping keys on it, so that two events sharing a reason but matching
+	// different rules become different findings: an Evicted for disk pressure
+	// and an Evicted for memory pressure are not one fact about a workload.
+	// It exists so grouping never keys on cause, which is display text -- and
+	// rewording a sentence must not silently change how records coalesce.
+	id string
+
 	category Category
 	severity event.Severity
 	cause    string
@@ -41,7 +50,7 @@ var warning = event.SeverityWarning
 var imagePullMarkers = []string{"ErrImagePull", "ImagePullBackOff", "Failed to pull image"}
 
 // noiseRule is the shared verdict for normal lifecycle events.
-var noiseRule = rule{category: CategoryNoise, severity: event.SeverityInfo}
+var noiseRule = rule{id: "lifecycle", category: CategoryNoise, severity: event.SeverityInfo}
 
 // taxonomy maps an event reason to its ordered rules.
 //
@@ -57,12 +66,14 @@ var taxonomy = map[string][]rule{
 	// noise: a Normal-severity BackOff is a repeated image-pull retry.
 	"BackOff": {
 		{
+			id:           "backoff/crash-loop",
 			whenSeverity: &warning,
 			category:     CategoryIssue,
 			severity:     event.SeverityCritical,
 			cause:        "container is crash-looping and repeatedly failing to start",
 		},
 		{
+			id:       "backoff/image-pull-retry",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "repeated image-pull retry; the image cannot be fetched",
@@ -72,12 +83,14 @@ var taxonomy = map[string][]rule{
 	// ImagePullBackOff and ErrImagePull live in the body, not the reason.
 	"Failed": {
 		{
+			id:          "failed/image-pull",
 			whenBodyHas: imagePullMarkers,
 			category:    CategoryIssue,
 			severity:    event.SeverityCritical,
 			cause:       "image pull failed; the tag or registry credentials are likely wrong",
 		},
 		{
+			id:       "failed/sandbox-creation",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "container or pod sandbox creation failed",
@@ -85,6 +98,7 @@ var taxonomy = map[string][]rule{
 	},
 	"FailedCreatePodSandBox": {
 		{
+			id:       "failed-sandbox",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "pod sandbox creation failed; the pod never reached a running state",
@@ -98,6 +112,7 @@ var taxonomy = map[string][]rule{
 	// on its own.
 	"OOMKilling": {
 		{
+			id:       "oom-killed",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "container exceeded its memory limit and was killed by the kernel",
@@ -106,6 +121,7 @@ var taxonomy = map[string][]rule{
 
 	"NodeNotReady": {
 		{
+			id:       "node/not-ready",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "node went unhealthy; workloads on it are at risk",
@@ -113,6 +129,7 @@ var taxonomy = map[string][]rule{
 	},
 	"NodeHasDiskPressure": {
 		{
+			id:       "node/disk-pressure",
 			category: CategoryIssue,
 			severity: event.SeverityCritical,
 			cause:    "node is under disk pressure and will evict pods",
@@ -123,6 +140,7 @@ var taxonomy = map[string][]rule{
 
 	"FailedScheduling": {
 		{
+			id:       "failed-scheduling",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
 			cause:    "pod cannot be placed; insufficient resources or unsatisfied taints",
@@ -130,12 +148,14 @@ var taxonomy = map[string][]rule{
 	},
 	"Unhealthy": {
 		{
+			id:          "unhealthy/liveness",
 			whenBodyHas: []string{"Liveness probe failed"},
 			category:    CategoryIssue,
 			severity:    event.SeverityWarning,
 			cause:       "liveness probe failing; the kubelet will restart the container",
 		},
 		{
+			id:       "unhealthy/readiness",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
 			cause:    "readiness probe failing; the pod is being kept out of service",
@@ -143,6 +163,7 @@ var taxonomy = map[string][]rule{
 	},
 	"FailedMount": {
 		{
+			id:       "failed-mount",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
 			cause:    "volume mount failed; a referenced configmap or secret is likely missing",
@@ -150,12 +171,14 @@ var taxonomy = map[string][]rule{
 	},
 	"Evicted": {
 		{
+			id:          "evicted/disk-pressure",
 			whenBodyHas: []string{"[DiskPressure]"},
 			category:    CategoryIssue,
 			severity:    event.SeverityWarning,
 			cause:       "pod evicted because its node was under disk pressure",
 		},
 		{
+			id:       "evicted/memory-pressure",
 			category: CategoryIssue,
 			severity: event.SeverityWarning,
 			cause:    "pod evicted because its node was under resource pressure",
@@ -183,6 +206,7 @@ var taxonomy = map[string][]rule{
 	// capture's incident, making it the anchor for deploy-correlated failure.
 	"ScalingReplicaSet": {
 		{
+			id:       "deploy/scaled",
 			category: CategoryDeployMarker,
 			severity: event.SeverityInfo,
 			cause:    "deployment scaled; a rollout occurred here",

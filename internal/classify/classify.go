@@ -8,8 +8,16 @@ type Category int
 // Categories. The filter categorizes rather than deletes, so that a record can
 // be excluded from the report while still being available to correlation.
 const (
-	// CategoryNoise is normal lifecycle traffic, discarded by the caller.
+	// CategoryNoise is normal lifecycle traffic. Retained by the caller but
+	// never narrated: it is the evidence a trail is built from, not a finding.
 	CategoryNoise Category = iota
+	// CategoryUnclassified is a named reason the taxonomy does not cover, at a
+	// severity too low to call an issue. It is reported, demoted, rather than
+	// buried -- a reason we cannot interpret is a gap in the taxonomy, and
+	// silently bucketing it as lifecycle is how a novel failure mode goes
+	// unnoticed. Grouping collapses many such records into one finding per
+	// reason, so disclosing them costs one line, not one line per record.
+	CategoryUnclassified
 	// CategoryDeployMarker is not reportable on its own but is retained as a
 	// correlation anchor: a rollout is the likeliest explanation for several
 	// unrelated services failing at once.
@@ -24,11 +32,15 @@ func (c Category) String() string {
 	case CategoryNoise:
 		return "NOISE"
 
+	case CategoryUnclassified:
+		return "UNCLASSIFIED"
+
 	case CategoryDeployMarker:
 		return "DEPLOY"
 
 	case CategoryIssue:
 		return "ISSUE"
+
 	default:
 		return "UNKNOWN"
 	}
@@ -48,6 +60,19 @@ type Classification struct {
 	// written from the engineer's point of view rather than the data's. The
 	// brief is explicit that counts without interpretation are half the work.
 	Cause string
+
+	// Rule identifies the taxonomy row that produced this verdict.
+	//
+	// Grouping keys on it so that two events sharing a reason but matching
+	// different rules stay separate findings. In 05-test-b one workload is
+	// Evicted twice for genuinely different reasons -- once for node memory
+	// pressure as background noise, later as part of a node-wide disk pressure
+	// incident -- and merging them drags the incident's start time thirteen
+	// minutes earlier than the cause that explains it.
+	//
+	// Deliberately not Cause: that is display text, and rewording a sentence
+	// must never change how records coalesce.
+	Rule string
 
 	// Recognised is false when no rule matched and the verdict came from the
 	// fallback. It lets the report disclose unclassified reasons instead of
@@ -83,6 +108,7 @@ func (c *Classifier) Classify(e event.Event) Classification {
 				Category:   r.category,
 				Severity:   r.severity,
 				Cause:      r.cause,
+				Rule:       r.id,
 				Recognised: true,
 			}
 		}
@@ -96,22 +122,42 @@ func (c *Classifier) Classify(e event.Event) Classification {
 
 // fallback classifies an event whose reason is not in the taxonomy.
 //
-// A warning we do not recognise is surfaced rather than hidden: the cost of one
+// A warning we do not recognise is surfaced as an issue: the cost of one
 // spurious low-confidence finding is far lower than the cost of silently
-// dropping a novel failure mode. An unrecognised Normal event is treated as
-// lifecycle, because Kubernetes Normal traffic is overwhelmingly routine and
-// admitting all of it would drown the report.
+// dropping a novel failure mode.
 //
-// Either way Recognised is false, so the report can say how much of the capture
-// it could not interpret.
+// A *named* reason at Normal severity is surfaced too, demoted, rather than
+// swept in with lifecycle traffic. Kubernetes Normal traffic is overwhelmingly
+// routine, but a reason absent from the taxonomy is a gap in our
+// interpretation, not a fact about the cluster -- and grouping collapses every
+// occurrence of it into a single finding, so admitting it costs one line.
+//
+// An *unnamed* reason is the one case that stays noise. There is no reason
+// string to report, so a finding for it would say nothing a reader could act
+// on.
+//
+// Recognised is false throughout, so the report can also state in aggregate how
+// much of the capture it could not interpret.
 func fallback(e event.Event) Classification {
 	if e.Severity >= event.SeverityWarning {
 		return Classification{
 			Category:   CategoryIssue,
 			Severity:   event.SeverityWarning,
 			Cause:      "unrecognised warning reason; classified conservatively",
+			Rule:       "unrecognised-warning",
 			Recognised: false,
 		}
 	}
-	return Classification{Category: CategoryNoise, Severity: event.SeverityInfo}
+
+	if e.Reason == "" {
+		return Classification{Category: CategoryNoise, Severity: event.SeverityInfo, Rule: "lifecycle"}
+	}
+
+	return Classification{
+		Category:   CategoryUnclassified,
+		Severity:   event.SeverityInfo,
+		Cause:      "reason is not in the taxonomy; surfaced uninterpreted rather than dropped",
+		Rule:       "unclassified",
+		Recognised: false,
+	}
 }

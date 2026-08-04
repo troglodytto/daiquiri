@@ -205,9 +205,9 @@ func TestClassifyUnknownReasons(t *testing.T) {
 		wantCategory classify.Category
 	}{
 		{"unknown warning is surfaced conservatively", "SomeNewReason", event.SeverityWarning, classify.CategoryIssue},
-		{"unknown normal is treated as lifecycle", "SomeNewReason", event.SeverityInfo, classify.CategoryNoise},
+		{"unknown normal is surfaced as unclassified", "SomeNewReason", event.SeverityInfo, classify.CategoryUnclassified},
 		{"empty reason at warning is surfaced", "", event.SeverityWarning, classify.CategoryIssue},
-		{"empty reason at normal is noise", "", event.SeverityInfo, classify.CategoryNoise},
+		{"empty reason at normal is noise, having no name to report", "", event.SeverityInfo, classify.CategoryNoise},
 	}
 
 	c := classify.New()
@@ -219,6 +219,28 @@ func TestClassifyUnknownReasons(t *testing.T) {
 			assert.False(t, got.Recognised, "an unmatched reason must be disclosed, not silently bucketed")
 		})
 	}
+}
+
+// TestClassifyNovelNormalReasonIsNotBuried is the regression for the probe
+// record planted in 06-test-c.jsonl, whose own body reads "In case there are
+// some new events that we haven't really recognized and handled, we'd much
+// rather surface it, instead of burying it".
+//
+// It is Normal severity, so routing unrecognised Normal events to noise --
+// which is what the fallback used to do -- buries exactly the record that asks
+// not to be buried. A named reason we cannot interpret is a gap in the taxonomy
+// and must be reportable; only an unnamed one has nothing to say.
+func TestClassifyNovelNormalReasonIsNotBuried(t *testing.T) {
+	got := classify.New().Classify(event.Event{
+		Reason:    "LALALALA",
+		Severity:  event.SeverityInfo,
+		Namespace: "data",
+		Object:    event.Object{Kind: event.KindPod, Name: "data-pipeline-3c7d2e1a9-49cdd"},
+	})
+
+	assert.Equal(t, classify.CategoryUnclassified, got.Category)
+	assert.False(t, got.Recognised)
+	assert.NotEmpty(t, got.Cause, "an unclassified finding still needs a line the reader can act on")
 }
 
 func TestClassifyZeroEventIsNoise(t *testing.T) {
@@ -243,6 +265,7 @@ func TestClassifyBodySensitiveReasonsTolerateEmptyBodies(t *testing.T) {
 
 func TestCategoryString(t *testing.T) {
 	assert.Equal(t, "NOISE", classify.CategoryNoise.String())
+	assert.Equal(t, "UNCLASSIFIED", classify.CategoryUnclassified.String())
 	assert.Equal(t, "DEPLOY", classify.CategoryDeployMarker.String())
 	assert.Equal(t, "ISSUE", classify.CategoryIssue.String())
 	assert.Equal(t, "UNKNOWN", classify.Category(99).String())

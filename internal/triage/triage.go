@@ -7,15 +7,23 @@ import (
 
 	"github.com/troglodytto/daiquiri/internal/classify"
 	"github.com/troglodytto/daiquiri/internal/event"
+	"github.com/troglodytto/daiquiri/internal/group"
 	"github.com/troglodytto/daiquiri/internal/otel"
 )
 
-// issuesCapacityHint pre-sizes the retained slices.
+// recordsCapacityHint pre-sizes the retained record slice.
 //
-// The largest issue count across the provided captures is 227 (04-test-a), so
-// one allocation covers every one of them. Purely an allocation hint --
-// correctness does not depend on it.
-const issuesCapacityHint = 256
+// Every provided capture is ~20,000 records, so one allocation covers a whole
+// file. Purely an allocation hint -- correctness does not depend on it, and a
+// larger capture simply grows the slice.
+const recordsCapacityHint = 20 * 1024
+
+// classifiedCapacityHint pre-sizes the slice of reportable records.
+//
+// The largest reportable count across the provided captures is 228 (04-test-a:
+// 227 issues plus one deploy marker), so one allocation covers every one of
+// them.
+const classifiedCapacityHint = 256
 
 // Classifier is what the pipeline needs from internal/classify.
 //
@@ -29,16 +37,14 @@ type Classifier interface {
 }
 
 // Result reports what one run of the pipeline found.
-//
-// It is a value with no methods: everything on it is something cmd/triage or
-// internal/report will print.
 type Result struct {
 	// Ingested and Skipped come from the decoder. Skipped is disclosed rather
 	// than swallowed so a truncated capture cannot look like a clean one.
 	Ingested int
 	Skipped  int
 
-	// Noise counts records dropped as normal lifecycle traffic.
+	// Noise counts records classified as normal lifecycle traffic. They are
+	// counted here for the header and retained in full in Records.
 	Noise int
 
 	// Unrecognised counts records whose reason is not in the taxonomy. They are
@@ -46,32 +52,32 @@ type Result struct {
 	// report can say how much of the capture it could not interpret.
 	Unrecognised int
 
-	// Issues are the reportable events. In Phase 3 this becomes a slice of
-	// coalesced findings; carrying raw events until then keeps the phase
-	// boundary honest rather than inventing a finding type before grouping
-	// exists.
-	Issues []event.Event
+	// Records is every decoded record, in the order the capture supplied them.
+	//
+	// Retained rather than filtered, because lifecycle events are evidence
+	// rather than clutter. The interval between a pod's Started and its next
+	// Killing is what gives a memory leak a fill rate -- 4m41s contracting to
+	// 4m12s in 02-memory-leak -- and both endpoints are records the report
+	// itself never prints. Roughly 1.6 MB for a 20,000-record capture, against
+	// a 16 MB input file.
+	Records []event.Event
 
-	// Markers are deploy markers -- not reportable on their own, retained
-	// because a rollout is the likeliest explanation for several unrelated
-	// services failing at once.
-	Markers []event.Event
+	// Findings are the coalesced reportable groups: issues, deploy markers and
+	// unclassified reasons. Lifecycle noise never becomes a finding.
+	Findings []group.Finding
 
 	// Elapsed is wall-clock time for the run.
 	Elapsed time.Duration
 }
 
+// Summarise renders the one-line header.
 func (res Result) Summarise() string {
 	s := fmt.Sprintf(
-		"Records ingested: %d | Filtered as noise: %d | Issues: %d",
+		"Records ingested: %d | Filtered as noise: %d | Findings: %d",
 		res.Ingested,
 		res.Noise,
-		len(res.Issues),
+		len(res.Findings),
 	)
-
-	if len(res.Markers) > 0 {
-		s += fmt.Sprintf(" | Deploys: %d", len(res.Markers))
-	}
 
 	// Both numbers are disclosed rather than hidden: a truncated capture must
 	// not be able to look clean, and neither must one the taxonomy could not
@@ -84,10 +90,10 @@ func (res Result) Summarise() string {
 		s += fmt.Sprintf(" | Unrecognised: %d", res.Unrecognised)
 	}
 
-	return s + fmt.Sprintf(" | %s\n", res.Elapsed.Round(time.Millisecond))
+	return s + fmt.Sprintf(" | %s", res.Elapsed.Round(time.Millisecond))
 }
 
-// Pipeline runs the ingest and classification stages in order.
+// Pipeline runs the ingest, classification and grouping stages in order.
 //
 // It holds the sequence and nothing else. If logic accumulates here, that logic
 // belongs in a stage.
@@ -100,7 +106,8 @@ func New(c Classifier) *Pipeline {
 	return &Pipeline{classifier: c}
 }
 
-// Run streams the capture in r, classifies every record, and reports the result.
+// Run streams the capture in r, classifies every record, coalesces the
+// reportable ones, and reports the result.
 //
 // The decoder is constructed from r rather than injected: driving Run with a
 // reader already exercises the real decoder, so a factory indirection would buy
@@ -112,10 +119,8 @@ func New(c Classifier) *Pipeline {
 func (p *Pipeline) Run(r io.Reader) (Result, error) {
 	start := time.Now()
 
-	res := Result{
-		Issues:  make([]event.Event, 0, issuesCapacityHint), // we're pre allocating size = "issuesCapacityHint" as a preemptive measure
-		Markers: make([]event.Event, 0),                     // Deployment markers, since there can be issues which originated after a certain deployment
-	}
+	res := Result{Records: make([]event.Event, 0, recordsCapacityHint)}
+	reportable := make([]group.Classified, 0, classifiedCapacityHint)
 
 	d := otel.New(r)
 	for {
@@ -124,26 +129,29 @@ func (p *Pipeline) Run(r io.Reader) (Result, error) {
 			break
 		}
 
+		res.Records = append(res.Records, e)
+
 		verdict := p.classifier.Classify(e)
 		if !verdict.Recognised {
 			res.Unrecognised++
 		}
 
-		switch verdict.Category {
-		case classify.CategoryIssue:
-			res.Issues = append(res.Issues, e)
-
-		case classify.CategoryDeployMarker:
-			res.Markers = append(res.Markers, e)
-
-		case classify.CategoryNoise:
+		// Noise is counted for the header but never coalesced. It stays in
+		// Records, where a trail can reach it, and out of the findings, where
+		// ~19,800 lifecycle records per capture would drown every real one.
+		if verdict.Category == classify.CategoryNoise {
 			res.Noise++
+			continue
 		}
+
+		reportable = append(reportable, group.Classified{Event: e, Class: verdict})
 	}
 
 	if err := d.Err(); err != nil {
 		return Result{}, fmt.Errorf("triage: decoding: %w", err)
 	}
+
+	res.Findings = group.Coalesce(reportable)
 
 	stats := d.Stats()
 	res.Ingested = stats.Ingested
