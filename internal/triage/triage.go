@@ -113,8 +113,8 @@ func (p *Pipeline) Run(r io.Reader) (Result, error) {
 	start := time.Now()
 
 	res := Result{
-		Issues:  make([]event.Event, 0, issuesCapacityHint),
-		Markers: make([]event.Event, 0),
+		Issues:  make([]event.Event, 0, issuesCapacityHint), // we're pre allocating size = "issuesCapacityHint" as a preemptive measure
+		Markers: make([]event.Event, 0),                     // Deployment markers, since there can be issues which originated after a certain deployment
 	}
 
 	d := otel.New(r)
