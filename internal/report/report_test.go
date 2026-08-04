@@ -56,13 +56,23 @@ func nodePressure() triage.Result {
 		Forest: link.Forest{Findings: []group.Finding{
 			finding(event.SeverityWarning, "batch-reporter", "data", "Unhealthy", 3,
 				[]string{"batch-reporter-19cb12bab-7143a"}, []string{"node-5"}, at("10:01:29.089"), at("10:01:44.735")),
-			finding(event.SeverityCritical, "node-4", "default", "NodeHasDiskPressure", 1,
-				[]string{"node-4"}, []string{"node-4"}, at("10:15:00.000"), at("10:15:00.000")),
+			nodeFinding("node-4", at("10:15:00.000")),
 			finding(event.SeverityWarning, "data-pipeline", "data", "Evicted", 3,
 				[]string{"a", "b", "c"}, []string{"node-4"}, at("10:15:25.779"), at("10:19:56.562")),
 			finding(event.SeverityInfo, "data-pipeline", "data", "FailedScheduling", 177,
 				[]string{"a", "b", "c", "d", "e", "f"}, nil, at("10:20:04.679"), at("10:29:59.677")),
 		}},
+	}
+}
+
+// nodeFinding is a Node-kind finding: it carries no pods, because a node
+// condition is not about pods.
+func nodeFinding(node string, first time.Time) group.Finding {
+	return group.Finding{
+		Kind: event.KindNode, Workload: node, Namespace: "default",
+		Reason: "NodeHasDiskPressure", Category: classify.CategoryIssue,
+		Severity: event.SeverityCritical, Cause: "node is under disk pressure",
+		Count: 1, FirstSeen: first, LastSeen: first, Nodes: []string{node},
 	}
 }
 

@@ -46,7 +46,7 @@ func nodeCond(node, reason string, first time.Time) group.Finding {
 		Kind: event.KindNode, Workload: node, Namespace: "default", Reason: reason,
 		Category: classify.CategoryIssue, Severity: event.SeverityCritical,
 		Count: 1, FirstSeen: first, LastSeen: first,
-		Pods: []string{node}, Nodes: []string{node},
+		Nodes: []string{node}, // no Pods: a node condition is not about pods
 		Events: []event.Event{{
 			Timestamp: first, Reason: reason,
 			Body:   "Node " + node + " status is now: " + reason,
@@ -61,7 +61,7 @@ func deploy(workload, ns, replicaSet string, first time.Time, replicas int) grou
 		Kind: "Deployment", Workload: workload, Namespace: ns, Reason: "ScalingReplicaSet",
 		Category: classify.CategoryDeployMarker, Severity: event.SeverityInfo,
 		Count: 1, FirstSeen: first, LastSeen: first,
-		Pods: []string{workload},
+		// no Pods: a rollout is not about pods
 		Events: []event.Event{{
 			Timestamp: first, Reason: "ScalingReplicaSet",
 			Body:   "Scaled up replica set " + replicaSet + " to " + itoa(replicas),

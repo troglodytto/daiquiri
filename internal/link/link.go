@@ -215,6 +215,13 @@ var causalRules = []rule{
 	// a shared pod plus adjacency is an inference, where the two below are
 	// stated outright in the record text.
 	//
+	// Scoped to pods by construction rather than by a kind check: group leaves
+	// Pods empty for anything that is not a pod, and an empty set intersects
+	// nothing. That is the correct scope for the claim this rule makes -- one
+	// running instance experienced both, so the earlier likely caused the later.
+	// Two deliberate rollouts of a Deployment are not cause and effect, and two
+	// conditions on one node want their own rule with their own wording.
+	//
 	// It ranks first anyway because it is what produces a three-hop chain. An
 	// image-pull BackOff matches both this rule (against the Failed on the same
 	// pods) and the rollout rule; letting the rollout win would flatten
