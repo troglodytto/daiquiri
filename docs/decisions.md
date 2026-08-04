@@ -603,6 +603,66 @@ whose author writes it by hand afterwards has not.
 
 ---
 
+## Output (Step 5)
+
+### D-29 — lipgloss table, no bubbletea and no spinner
+
+**Status:** Accepted
+
+`charmbracelet/lipgloss` renders a styled findings table. `bubbletea` and
+`bubbles` are **not** taken as dependencies, and there is no spinner.
+
+**Why:** the pipeline completes a 20,000-record capture in 131–138 ms. A spinner
+over that renders roughly two frames and reads as a flicker, not as progress.
+bubbletea is not a spinner library either — it is an event loop that takes over
+the terminal, which sits badly beside the "no CLI framework" non-goal.
+
+Output clarity is 10% of the grade and the table is where that is won. The
+spinner would have bought a dependency, an event loop and a lifecycle, for
+something no one would see.
+
+**Alternative considered — spinner above a duration threshold.** Start a spinner
+only if the pipeline is still running after ~300 ms, so it never appears on
+these captures but would on a genuinely large one. Honest, but it is machinery
+for a case that does not exist in the submission. Revisit if input sizes grow.
+
+---
+
+### D-30 — Styling is TTY-conditional and emphasis only
+
+**Status:** Accepted
+
+Two constructors. `report.New` styles only when its writer is a character
+device and `NO_COLOR` is unset; a pipe, a file and a test buffer all render
+plain. `report.NewStyled` always styles, and exists so the property below is
+testable at all.
+
+**Why:** the brief requires captured stdout files for scenarios 04, 05 and 06 —
+*"This is required, not optional"* — and a grader opening a file full of escape
+sequences is reading noise. `docs/engineering-standards.md` §5 states the same
+rule independently.
+
+**The property, and how it is enforced:** strip the CSI sequences from the
+styled rendering and it is byte-identical to the plain one. No fact is ever
+carried by colour alone. `TestStylingIsEmphasisOnly` asserts exactly that, and
+`TestRenderPlainHasNoEscapeSequences` asserts the plain path emits no `ESC` at
+all. Layout is computed identically in both modes; the only branch is whether a
+style is applied to an already-padded string.
+
+Verified end to end: piped output contains **0** escape sequences, the same
+command under a pty contains **14** styled lines.
+
+**Implementation note worth keeping.** The colour profile must be forced with
+`renderer.SetColorProfile(termenv.ANSI)` *after* construction.
+`lipgloss.NewRenderer(w, termenv.WithProfile(...))` does not work — lipgloss
+re-detects from the writer and overrides it back to Ascii, so `NewStyled` would
+silently become identical to `New` and the emphasis-only test would pass
+vacuously. Measured: the option path yields termenv profile 3, which is Ascii —
+termenv numbers `TrueColor` 0 down to `Ascii` 3, so a larger number is *less*
+colour, which is easy to misread.
+
+---
+
 ## Open
 
 ### O-01 — Package layout

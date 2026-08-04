@@ -7,7 +7,7 @@ Governed by `docs/engineering-standards.md`. Every decision below is recorded
 with its alternatives in `docs/decisions.md`; this document states *what* the
 system is, the ledger states *why* and *what lost*.
 
-Status: **Steps 1 and 2 implemented and tested. Step 3 designed, thresholds
+Status: **Steps 1, 2 and 5 implemented and tested. Step 3 designed, thresholds
 open. Step 4 outlined.**
 
 ---
@@ -63,7 +63,7 @@ walks back to where the failure started.
   └─────────┬─────────┘
             │  []Incident (findings bucketed by root record)
   ┌─────────▼─────────┐
-  │      report       │  order by severity, render text | json
+  │ internal/report   │  STEP 5 — lipgloss table; styled on a tty, plain when piped
   └───────────────────┘
        stdout
 ```
@@ -276,6 +276,15 @@ Assert the brief's acceptance criteria directly:
   `Failed` by body, pattern `Deploy-correlated`.
 - 04, 05, 06 → finding counts match §5.1; root cause matches D-03's table.
 - Every fixture → finding count exactly as tabulated.
+
+### 8.4a Report
+
+`TestStylingIsEmphasisOnly` renders the same result twice and asserts the styled
+output, with CSI sequences stripped, is byte-identical to the plain one — so no
+fact can be carried by colour. `TestRenderPlainHasNoEscapeSequences` asserts the
+plain path emits no `ESC` at all, which is what makes the submitted capture
+files readable. `TestColumnsFitTheirContent` widens a workload name past its
+column and asserts every following column still aligns.
 
 ### 8.5 Golden files
 

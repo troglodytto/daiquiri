@@ -43,6 +43,11 @@ type Result struct {
 	Ingested int
 	Skipped  int
 
+	// Cluster names the source cluster, for the report header. Taken from the
+	// first record: a capture is one cluster's events, and nothing downstream
+	// reasons about it, so disagreement between records is not worth detecting.
+	Cluster string
+
 	// Noise counts records classified as normal lifecycle traffic. They are
 	// counted here for the header and retained in full in Records.
 	Noise int
@@ -127,6 +132,10 @@ func (p *Pipeline) Run(r io.Reader) (Result, error) {
 		e, ok := d.Next()
 		if !ok {
 			break
+		}
+
+		if res.Cluster == "" {
+			res.Cluster = e.Cluster
 		}
 
 		res.Records = append(res.Records, e)

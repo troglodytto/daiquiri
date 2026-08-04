@@ -1,0 +1,9 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,984 filtered as noise, 4 findings (131ms)
+
+TIME          SEVERITY  WORKLOAD        NAMESPACE  REASON               COUNT  PODS  WINDOW   NODES
+────────────────────────────────────────────────────────────────────────────────────────────────────
+10:01:29.089  WARNING   batch-reporter  data       Unhealthy                3     1  16s      node-5
+10:15:00.000  CRITICAL  node-4          default    NodeHasDiskPressure      1     1  instant  node-4
+10:15:25.779  WARNING   data-pipeline   data       Evicted                  3     3  4m31s    node-4
+10:20:04.679  INFO      data-pipeline   data       FailedScheduling       177     6  9m55s    -
