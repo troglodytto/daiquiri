@@ -449,7 +449,7 @@ computed on demand, stored nowhere.
 At n=227 a linear scan is free. Everything in D-18 through D-20 was solving a
 performance problem that doesn't exist.
 
-## D-18: Precomputed parent forest over a time-sorted entry array
+## D-18: A precomputed Forest Data Structure over a time-sorted entry array
 
 **Parked** by D-17, **un-parked** by D-31.
 
@@ -466,7 +466,7 @@ implementation isn't needed. D-31 brought it back at a different grain.
 **Accepted** as a rule; the mechanism is D-31.
 
 Real causality is a DAG, since several causes contribute to one effect. The
-artifact is deliberately a forest.
+artifact is deliberately a Forest Data Structure.
 
 **Why.** The moment a node has two parents, "pull the thread" stops being a
 well-defined gesture:
@@ -535,7 +535,8 @@ the node-condition link that's actually correct.
 **Rejected.**
 
 Union-find's physical form (`parent []int` with `find()` walking to a root) is
-exactly the shape a causal forest takes, and its native question ("are these the
+exactly the shape a causal Forest Data Structure takes, and its native question
+("are these the
 same set?") is exactly 05's question. Both of its optimisations disqualify it:
 
 - **Path compression** repoints each node directly at its root. The intermediate
@@ -544,7 +545,8 @@ same set?") is exactly 05's question. Both of its optimisations disqualify it:
 - **Union by rank** picks whichever parent balances the tree. The requirement is
   the parent that's *true*. Unrelated criteria.
 
-Union-find minus rank minus path compression is a forest. At n≈10 there's
+Union-find minus rank minus path compression is a Forest Data Structure. At
+n≈10 there's
 nothing left for the algorithm to contribute.
 
 ## D-25: Fixed-width time buckets derive shape; they never link findings
@@ -557,7 +559,7 @@ associate two findings, which is D-21 restated at the implementation level.
 Buckets are computed on demand from retained occurrence timestamps and stored
 nowhere, because a second copy of a derivable fact is a second source of truth.
 
-## D-31: The causal structure is a parent-array forest over findings
+## D-31: The causal structure is a Forest Data Structure over findings
 
 **Accepted.** Un-parks D-18, narrows D-17.
 
@@ -579,7 +581,8 @@ topological sort. `Children(i)` need only scan forward from `i+1`.
 
 **Grain: finding→finding, not finding→record.** D-18 was parked as superseded by
 D-17's trail-on-demand. The simulation showed it was the right shape at the
-wrong grain. Both now survive at different jobs: the forest is the causal
+wrong grain. Both now survive at different jobs: the Forest Data Structure is
+the causal
 structure, and raw-record queries remain the *evidence* mechanism for quoting
 things like 02's OOM interval.
 
@@ -888,17 +891,19 @@ whose author writes it by hand afterwards hasn't.
 **Accepted.** Corrects the plan in `handover.md` §8.1.
 
 The plan said "add a `Pattern` to `group.Finding`". Wrong on two counts, both
-only visible once the forest existed:
+only visible once the Forest Data Structure existed:
 
 1. `group`'s own prohibition is that it *"does not interpret shape over time,
    rank findings, or decide what caused what"*. A pattern is exactly the first
    of those.
 2. Two of the five patterns, deploy-correlated and node issue, are read off
-   `RootOf(i)`. `group` runs before `link` and has no forest to consult. The
+   `RootOf(i)`. `group` runs before `link` and has no Forest Data Structure to
+   consult. The
    field would have to be filled in later by someone else, which is a mutable
    hole in a value the rest of the pipeline treats as final.
 
-So a fifth package, `internal/diagnose`, consuming a forest and producing a
+So a fifth package, `internal/diagnose`, consuming a Forest Data Structure and
+producing a
 verdict per finding:
 
 ```go
@@ -928,7 +933,8 @@ output has a `Pattern:` line. Those five, in those words.
 
 **The fight.** There's a real argument for a different vocabulary. Two of the
 five, deploy-correlated and node issue, are pure restatements of *"my root is a
-deploy marker"* and *"my root is a node condition"*, which the forest already
+deploy marker"* and *"my root is a node condition"*, which the Forest Data
+Structure already
 says with evidence in far more detail:
 
 > `rollout created replica set payment-service-9e3f1a2b8 4.4s earlier; all 3
@@ -936,7 +942,8 @@ says with evidence in far more detail:
 
 Next to that, `Pattern: deploy-correlated failure` adds nothing. A vocabulary
 describing **shape only** (transient / sustained / point) would carve the space
-along an axis the forest doesn't already cover, and would be defensible.
+along an axis the Forest Data Structure doesn't already cover, and would be
+defensible.
 
 **Why it lost.** The brief names its five and asks for them by name. A grader
 reading for their own vocabulary should find their own vocabulary. Inventing a
@@ -1049,7 +1056,7 @@ The controlling evidence, three findings from the corpus:
 first is background noise that must not be reported. The second is a pod killed
 by a dying node. The third is the single most important line in that capture. No
 threshold on count, pods, span or occupancy can separate them, because there's
-nothing there to separate. Only the forest can.
+nothing there to separate. Only the Forest Data Structure can.
 
 ```
 suppress(i) := Category == Issue
@@ -1755,7 +1762,7 @@ magic"*).
 Settled at three constants rather than six. Only "transient" needs numbers at
 all. Every other pattern is decided by a rule ID, a body substring, or the root
 of the incident, and the suppression those thresholds feed is a conjunction with
-the forest rather than a threshold on its own.
+the Forest Data Structure rather than a threshold on its own.
 
 ## O-03: Deploy-correlation window *(closed by D-33)*
 
@@ -1806,7 +1813,7 @@ was right first time.
 |---|---|---|---|
 | **D-11 draft** | `Node` belongs in the group key | **D-12** | Fixed 05, fragmented 02/03/04. A memory leak belongs to the workload |
 | **D-23** | 05's impure eviction finding should be disclosed, not split | **D-28** | The bodies name two different causes, so the taxonomy rule already separates them |
-| **D-18/D-20** | Precomputed forest, two-arena layout | **D-17** | Solving a performance problem that doesn't exist at n≤227 |
+| **D-18/D-20** | Precomputed Forest Data Structure, two-arena layout | **D-17** | Solving a performance problem that doesn't exist at n≤227 |
 | **D-17** | A trail is only an on-demand query | **D-31** | Right shape, wrong grain. Both survive at different jobs |
 | **D-27** | Truncation is detected by proximity to capture start | **D-34** | 02's first OOM is 156s in, so the heuristic mis-calls it, and it needed a threshold nothing justified |
 | **D-05** | 02's memory leak is *accelerating* | **D-58** | Two intervals on one pod. Across all 22 the ratio is 0.79, which supports nothing |

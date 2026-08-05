@@ -133,9 +133,10 @@ These are load-bearing. Violating one is a defect, not a style preference.
 
 1. **Timeline first.** The timeline is the primary artifact. The diagnosis comes
    from ordering and adjacency, not from findings judged in isolation.
-2. **One trail to walk up.** At most one parent per finding, a forest, not a
-   general DAG. Two parents turns "pull the thread" into a branching
-   interrogation, which is not an answer at 3am.
+2. **One trail to walk up.** At most one parent per finding. A Forest Data
+   Structure rather than a general DAG, because two parents turns "pull the
+   thread" into a branching interrogation, and at 3am that is a research
+   project.
 3. **Do not inflate.** Said repeatedly and emphatically. Sorted slices and
    integer indices over graph libraries; fixed-width buckets over statistics;
    small ordered rule tables over scoring models. If it does not make the
@@ -308,7 +309,8 @@ impresses and should be built *last*, after the graded checkboxes are green.
 
 Shipped as `internal/diagnose`, not as a field on `group.Finding`, two of the
 five patterns are read off `RootOf(i)`, which `group` runs too early to see
-(D-40). `Chart` embeds the forest and adds one `Diagnosis` per finding.
+(D-40). `Chart` embeds the Forest Data Structure and adds one `Diagnosis` per
+finding.
 
 | Pattern | Decided from | Fires on |
 |---|---|---|

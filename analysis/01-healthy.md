@@ -51,7 +51,7 @@ size, on a Tuesday, that's Tuesday.
 
 **1. Nothing explains them and they explain nothing.** This is the clause that
 does the work. Each of the three is a root (no parent found by any causal rule)
-*and* a leaf (no finding below it). They sit alone in the forest.
+*and* a leaf (no finding below it). They sit alone in the Forest Data Structure.
 
 Compare against `05-test-b`, which has an eviction with the same count, the same
 pod count and the same zero-second span, and is part of the incident. The
