@@ -62,7 +62,8 @@ docker run --rm -v "$PWD/testdata:/data:ro" daiquiri -json /data/05-test-b.jsonl
 ```
 
 Multi-stage build. `golang:1.26-alpine` compiles a static `CGO_ENABLED=0` binary
-(3.6 MB), and the final stage is `alpine:3.21` running as an unprivileged user.
+(3.5 MB, `-trimpath -s -w`), and the final stage is `alpine:3.21` running as uid
+65532. **17.4 MB image**, builds in ~30s from cold.
 `make docker-run ARGS=04-test-a.jsonl` wraps both commands.
 
 ## Usage
