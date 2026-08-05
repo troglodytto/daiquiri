@@ -1,5 +1,3 @@
-// Package report renders a triage result for a human reading it under time
-// pressure.
 package report
 
 import (

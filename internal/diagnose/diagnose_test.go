@@ -206,9 +206,9 @@ func TestCapacityOutranksDeployCorrelated(t *testing.T) {
 }
 
 // TestSchedulingWithoutInsufficientResourcesIsNotCapacity guards the body test.
-// A pod that cannot be placed because of a taint or an affinity rule is a
-// scheduling failure, not a capacity one, and claiming the cluster is full when
-// it is not sends the reader to the wrong dashboard.
+// A pod blocked by a taint or an affinity rule has plenty of room and still
+// cannot be placed. Calling that a capacity issue sends the reader to the wrong
+// dashboard.
 func TestSchedulingWithoutInsufficientResourcesIsNotCapacity(t *testing.T) {
 	marker := group.Finding{
 		Kind: "Deployment", Workload: "data-pipeline", Reason: "ScalingReplicaSet",

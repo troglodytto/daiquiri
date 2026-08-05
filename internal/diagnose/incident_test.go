@@ -239,9 +239,9 @@ func TestNoRemediationRendersNothing(t *testing.T) {
 }
 
 // TestShareExplanationNeedsAllThreeToMatch covers D-51's collapse condition. It
-// is asked of the causal rule rather than the evidence text, because evidence is
-// prose: 05's six evictions all fired one rule and every string differs in the
-// elapsed time it quotes.
+// is asked of the causal rule, because the evidence text is prose: 05's six
+// evictions all fired one rule and every string differs in the elapsed time it
+// quotes.
 func TestShareExplanationNeedsAllThreeToMatch(t *testing.T) {
 	mk := func(workload string, offset time.Duration) group.Finding {
 		return withBodies(at(issue(workload, "evicted/disk-pressure", 0, 1, 0), offset),

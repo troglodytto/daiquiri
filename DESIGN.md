@@ -613,7 +613,8 @@ what. The analysis says exactly that instead of folding them into the 404 story.
 ## Writing the decisions before the code
 
 I kept a ledger from the start. Every decision, its alternatives, the fixture
-evidence, reversals left in place. It's 59 entries now and longer than the tool.
+evidence, reversals left in place. 59 entries, and every one of them is a
+decision plus the alternatives it beat.
 
 Felt like overhead for about a day. Then it started paying.
 

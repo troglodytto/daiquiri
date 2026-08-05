@@ -47,7 +47,7 @@ func finding(sev event.Severity, workload, ns, reason string, n int, pods, nodes
 		Count: n, FirstSeen: first, LastSeen: last, Pods: pods, Nodes: nodes,
 	}
 
-	// Member records are synthesised rather than omitted. A finding that claims
+	// Member records are synthesised, never omitted. A finding that claims
 	// 24 occurrences and carries none cannot satisfy the property the JSON
 	// document rests on; that every count is recomputable from the records
 	// beside it; and a fixture that cannot satisfy it is a fixture that would
@@ -492,8 +492,8 @@ func deployFailure() triage.Result {
 }
 
 // TestTraceNarrowsAndMarks is the 3am path: you are paged for one service, and
-// what you need is the trail from your symptom back to its origin rather than
-// every incident in the cluster.
+// what you need is the trail from your symptom back to its origin, with the
+// rest of the cluster out of the way.
 func TestTraceNarrowsAndMarks(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, report.New(&buf).Trace("payment-service").Render(deployFailure()))
@@ -514,8 +514,8 @@ func TestTraceAccountsForWhatItHid(t *testing.T) {
 	assert.Contains(t, buf.String(), "showing 1 of 1 incident")
 }
 
-// TestTraceOnAWorkloadWithNoIncident says so plainly rather than rendering an
-// empty report that reads like a clean cluster.
+// TestTraceOnAWorkloadWithNoIncident says so in a sentence. An empty report
+// would read like a clean cluster.
 func TestTraceOnAWorkloadWithNoIncident(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, report.New(&buf).Trace("some-other-service").Render(deployFailure()))

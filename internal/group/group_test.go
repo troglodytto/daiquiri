@@ -44,7 +44,7 @@ func pod(name, ns, reason, node, rule string, ts time.Time) group.Classified {
 
 // TestCoalesceRollsUpPodInstances is the core of the brief's requirement that
 // the tool coalesce independent records itself. Five pod instances of one
-// service are one fact about that service, not five facts.
+// service are one fact about that service.
 func TestCoalesceRollsUpPodInstances(t *testing.T) {
 	in := []group.Classified{
 		pod("checkout-service-7d4f8b9c5-005e2", "production", "Unhealthy", "node-2", "unhealthy/readiness", at("22:07.319")),

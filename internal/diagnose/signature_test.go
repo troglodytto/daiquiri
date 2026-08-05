@@ -55,7 +55,7 @@ func TestSignaturesCollapseVolatileTokens(t *testing.T) {
 }
 
 // TestSignaturesKeepNumbersWithUnits is the normaliser's most important
-// restraint. 512Mi is the answer, not noise.
+// restraint. 512Mi is the answer.
 func TestSignaturesKeepNumbersWithUnits(t *testing.T) {
 	f := withBodies(issue("recommendation-service", "oom-killed", 0, 1, 0),
 		"Container recommendation in pod recommendation-service-5a8e2c1f4-b35ff exceeded memory limit (512Mi)",
@@ -202,9 +202,9 @@ func TestSignatureReadings(t *testing.T) {
 			"no node had enough of either CPU or memory for these pods",
 		},
 
-		// Silence, not a plausible-sounding guess. The rule-level meaning
-		// already covers these, and a body matcher nobody has seen fire is a
-		// guess wearing a rule's clothes.
+		// These carry no reading at all. The rule-level meaning already covers
+		// them, and a body matcher nobody has seen fire is a guess with a
+		// rule's authority.
 		{"an image pull carries no extra reading", `Failed to pull image "registry/x:v1": not found`, ""},
 		{"nor does an OOM kill", "Container x in pod <pod> exceeded memory limit (512Mi)", ""},
 		{"nor an HTTP 503, which no capture contains", "Readiness probe failed: HTTP probe failed with statuscode: 503", "the server answered the probe -- with a status saying this path is not what it wants"},
