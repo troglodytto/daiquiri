@@ -35,8 +35,8 @@ func TestSeverityOrdersCriticalHighest(t *testing.T) {
 }
 
 // TestSeverityZeroValueIsInfo protects the property that a zero Event is the
-// least urgent thing rather than accidentally the most urgent. Reordering the
-// const block would silently break this.
+// least urgent thing. Reordering the const block would make it accidentally
+// the most urgent, and nothing else would fail.
 func TestSeverityZeroValueIsInfo(t *testing.T) {
 	var s event.Severity
 	assert.Equal(t, event.SeverityInfo, s)

@@ -65,7 +65,7 @@ func tiedSymptoms() triage.Result {
 }
 
 // emit renders a result as JSON and decodes it back into a generic form, so the
-// tests below assert on the document a consumer actually receives rather than on
+// tests below assert on the document a consumer actually receives, and never on
 // the Go structs behind it.
 func emit(t *testing.T, res triage.Result) map[string]any {
 	t.Helper()
@@ -120,9 +120,9 @@ func TestJSONIncludesSuppressedFindings(t *testing.T) {
 	}
 }
 
-// TestJSONExplainsEverySuppressionDecision is what makes a verdict arguable
-// rather than merely stated: the outcome is true exactly when all four clauses
-// are, and both are published.
+// TestJSONExplainsEverySuppressionDecision is what makes a verdict arguable:
+// the outcome is true exactly when all four clauses are, and both are
+// published.
 func TestJSONExplainsEverySuppressionDecision(t *testing.T) {
 	for _, res := range []triage.Result{deployFailure(), healthy(), nodePressure()} {
 		doc := emit(t, res)
@@ -143,8 +143,8 @@ func TestJSONExplainsEverySuppressionDecision(t *testing.T) {
 }
 
 // TestJSONIncidentIndicesResolve guards the one way this document can lie:
-// incidents refer to findings by index rather than nesting them, so a bad index
-// would point a reader at the wrong failure.
+// incidents refer to findings by index, so a bad index would point a reader at
+// the wrong failure.
 func TestJSONIncidentIndicesResolve(t *testing.T) {
 	doc := emit(t, deployFailure())
 
@@ -184,8 +184,8 @@ func TestJSONPagedIsNullOnATie(t *testing.T) {
 	assert.Nil(t, paged)
 }
 
-// TestJSONRootHasNoEdge; null rather than a zero-valued object, because
-// Parent 0 would read as "explained by finding 0".
+// TestJSONRootHasNoEdge: a root emits null. A zero-valued object would put
+// Parent 0 on the wire, which reads as "explained by finding 0".
 func TestJSONRootHasNoEdge(t *testing.T) {
 	doc := emit(t, deployFailure())
 
@@ -215,8 +215,8 @@ func TestJSONPublishesTheThresholds(t *testing.T) {
 	assert.Equal(t, float64(10), th["transient_max_count"])
 	assert.Equal(t, float64(1), th["transient_max_pods"])
 
-	// Durations are strings, not nanosecond integers: a person writing an
-	// analysis report reads this document too.
+	// Durations are strings. 60000000000 is a number a reader has to decode, and
+	// a person writing an analysis report reads this document too.
 	assert.Equal(t, "1m0s", th["transient_max_span"])
 	assert.Equal(t, "2m0s", th["still_failing_within"])
 }

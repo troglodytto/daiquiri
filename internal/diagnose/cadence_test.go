@@ -125,7 +125,7 @@ func TestTrendClassification(t *testing.T) {
 
 // TestCadencePublishesTheHalvesItJudged: the classification is a threshold
 // applied to two numbers, and both are published so a reader can disagree with
-// the threshold rather than with the tool.
+// the threshold on its own terms.
 func TestCadencePublishesTheHalvesItJudged(t *testing.T) {
 	mild := []time.Duration{0}
 	for i, at := 0, time.Duration(0); i < 11; i++ {

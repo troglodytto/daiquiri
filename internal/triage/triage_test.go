@@ -50,8 +50,8 @@ func find(t *testing.T, res triage.Result, workload, reason string) group.Findin
 
 // TestPipelineCoalescesEveryFixture pins the coalescing outcome for all six
 // provided captures. These counts are the acceptance data for Step 2: they were
-// derived independently from the raw JSONL before the grouper existed, so a
-// change here is a change in behaviour, not a test that follows the code.
+// derived independently from the raw JSONL before the grouper existed. A change
+// here is a change in behaviour, and the test does not follow the code.
 func TestPipelineCoalescesEveryFixture(t *testing.T) {
 	tests := []struct {
 		fixture      string
@@ -65,8 +65,8 @@ func TestPipelineCoalescesEveryFixture(t *testing.T) {
 		{"04-test-a.jsonl", 20000, 0, 5},
 		{"05-test-b.jsonl", 20000, 0, 10},
 
-		// 06 carries one deliberately malformed line, which is skipped and
-		// disclosed rather than aborting the run. See
+		// 06 carries one deliberately malformed line. It is skipped, counted and
+		// disclosed in the header, and the run continues. See
 		// TestMalformedLineIsSkippedAndDisclosed.
 		{"06-test-c.jsonl", 20000, 1, 5},
 	}
@@ -190,8 +190,8 @@ func TestMalformedLineIsSkippedAndDisclosed(t *testing.T) {
 
 // TestFindingsAreOrderedAndDeterministic guards the trap that Go randomises map
 // iteration. 05-test-b has evictions inside the same second, so a sort on
-// FirstSeen alone leaves ties broken by map order; and golden tests would
-// then fail intermittently rather than reproducibly.
+// FirstSeen alone leaves ties broken by map order, and golden tests would then
+// fail intermittently, which is the worst way to find this.
 func TestFindingsAreOrderedAndDeterministic(t *testing.T) {
 	first := run(t, "05-test-b.jsonl").Chart.Findings
 
@@ -300,7 +300,7 @@ func TestForestMatchesTheFixtures(t *testing.T) {
 // TestNodePressureIncidentIsOneTree is the payoff for 05: six workloads across
 // three namespaces, all evicted, all resolving to the same root. That is the
 // brief's "seemingly unconnected findings are sometimes side effects of the same
-// underlying issue", answered by the tool rather than by the reader.
+// underlying issue", answered by the tool before the reader has to.
 func TestNodePressureIncidentIsOneTree(t *testing.T) {
 	forest := run(t, "05-test-b.jsonl").Chart.Forest
 
@@ -459,7 +459,7 @@ func TestDiagnosisMatchesTheFixtures(t *testing.T) {
 		}},
 
 		// The condition and all six evictions share one label, so the reader sees
-		// one node failure rather than seven warnings across three namespaces.
+		// one node failure where a flat report shows seven scattered warnings.
 		{"05-test-b.jsonl", 3, map[string]string{
 			"node-4/NodeHasDiskPressure":   "node issue",
 			"batch-reporter/Evicted":       "node issue",
@@ -497,8 +497,8 @@ func TestDiagnosisMatchesTheFixtures(t *testing.T) {
 	}
 }
 
-// TestEveryCaptureHoldsBackTheSameThreeShapes is corroboration rather than a
-// second assertion of the counts above.
+// TestEveryCaptureHoldsBackTheSameThreeShapes is corroboration. The counts
+// above are asserted elsewhere; this asks whether they land on the same shapes.
 //
 // The brief plants an identical background floor in all six files; one
 // eviction for node memory pressure, one failed mount, one three-event readiness

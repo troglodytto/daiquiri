@@ -1,4 +1,3 @@
-// Package group coalesces independent event records into findings.
 package group
 
 import (

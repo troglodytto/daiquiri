@@ -100,7 +100,7 @@ func TestSamePodLinks(t *testing.T) {
 
 // TestNodeConditionLinksWhenTheBodyNamesIt covers 05. The evicted pod's own
 // record names the condition that evicted it; the cluster states the cause,
-// so the edge is proven rather than inferred.
+// so the edge quotes the capture and a reader can check it.
 func TestNodeConditionLinksWhenTheBodyNamesIt(t *testing.T) {
 	f := link.Build([]group.Finding{
 		nodeCond("node-4", "NodeHasDiskPressure", at("10:15:00.000")),
@@ -118,7 +118,7 @@ func TestNodeConditionLinksWhenTheBodyNamesIt(t *testing.T) {
 
 // TestNodeConditionRejectsADifferentNamedCause is the control from 05: the
 // background eviction at 10:02:32 has the same Evicted reason but its body says
-// the node was low on memory, not that it had the disk-pressure condition.
+// the node was low on memory, which names a different cause.
 // It must not link even when placed on the same node inside the window.
 func TestNodeConditionRejectsADifferentNamedCause(t *testing.T) {
 	f := link.Build([]group.Finding{
