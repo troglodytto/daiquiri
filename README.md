@@ -368,8 +368,8 @@ Styling is applied only when stdout is a terminal and `NO_COLOR` is unset.
 ## Development
 
 ```sh
-make verify   # the gate: vet, lint, race tests, gofmt check
-make test     # go test ./... -race
+make verify   # the gate: vet, lint, tests, gofmt check
+make test     # go test ./...
 make lint     # golangci-lint  (make tools installs it, pinned)
 make bench    # go test -bench . -benchmem
 make capture  # regenerate every file in analysis/

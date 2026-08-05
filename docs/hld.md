@@ -235,7 +235,8 @@ shape separates them from real signal.
 Per `engineering-standards.md` §2: RED before GREEN with **observed** failure
 output pasted into the commit body; table-driven subtests named for behaviour;
 `testify` (`require` for preconditions, `assert` for independent checks);
-`-race` always; a passing run prints nothing but pass lines.
+no `-race` in the gate, since nothing here is concurrent; a passing run prints
+nothing but pass lines.
 
 ### 8.1 Unit
 

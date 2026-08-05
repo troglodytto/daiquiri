@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 // Exit codes; see the package comment for the contract these belong to.
@@ -26,7 +26,9 @@ const (
 // version is overridden at build time via -ldflags "-X main.version=...".
 var version = "dev"
 
-func run(args []string, stderr io.Writer) int {
+// run is the whole CLI, with both streams injected so the exit-code and
+// flag-conflict contract can be exercised without a subprocess.
+func run(args []string, stdout, stderr io.Writer) int {
 	flagSet := flag.NewFlagSet("triage", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
 
@@ -61,14 +63,11 @@ func run(args []string, stderr io.Writer) int {
 		return exitUsage
 	}
 
-	path := flagSet.Arg(0)
-	res, err := analyse(path)
-
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "triage: %v\n", err)
-		return exitFail
-	}
-
+	// Flag conflicts are settled before the file is touched. Reading a 16MB
+	// capture only to reject the argument list wastes the work, and it decides
+	// the exit code by which failure happened to come first: a usage error
+	// reported as exitFail because the path was also bad is a lie about which
+	// mistake the caller made.
 	if *asJSON && (*tableOnly || *treeOnly) {
 		_, _ = fmt.Fprintf(stderr, "--json replaces the human views; do not combine it with --table or --tree\n")
 		return exitUsage
@@ -79,8 +78,16 @@ func run(args []string, stderr io.Writer) int {
 		return exitUsage
 	}
 
+	path := flagSet.Arg(0)
+
+	res, err := analyse(path)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "triage: %v\n", err)
+		return exitFail
+	}
+
 	if *asJSON {
-		if err := report.WriteJSON(os.Stdout, res, version); err != nil {
+		if err := report.WriteJSON(stdout, res, version); err != nil {
 			_, _ = fmt.Fprintf(stderr, "triage: writing json: %v\n", err)
 			return exitFail
 		}
@@ -88,7 +95,7 @@ func run(args []string, stderr io.Writer) int {
 		return exitOK
 	}
 
-	renderer := report.New(os.Stdout)
+	renderer := report.New(stdout)
 
 	switch {
 	case *tableOnly:
@@ -120,7 +127,6 @@ func run(args []string, stderr io.Writer) int {
 const readBufferBytes = 256 * 1024
 
 func analyse(path string) (triage.Result, error) {
-	// fmt.Printf("Analysing %s\n", path)
 	file, err := os.Open(path)
 	if err != nil {
 		return triage.Result{}, err

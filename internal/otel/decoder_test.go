@@ -1,12 +1,15 @@
 package otel_test
 
 import (
+	"bufio"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/troglodytto/daiquiri/internal/event"
 	"github.com/troglodytto/daiquiri/internal/otel"
 )
 
@@ -57,4 +60,137 @@ func TestDecodeNormalisesNodeIdentity(t *testing.T) {
 			assert.Equal(t, tt.wantNode, ev.Node)
 		})
 	}
+}
+
+// TestStatsCountDecodedAndDamagedRecordsSeparately pins the disclosure contract:
+// a record that cannot be interpreted is counted, not raised and not dropped in
+// silence, so a truncated capture can never be mistaken for a clean one.
+func TestStatsCountDecodedAndDamagedRecordsSeparately(t *testing.T) {
+	const good = `{"timestamp":"2024-06-01T10:15:00.000Z","severity_text":"Warning","attributes":{"k8s.event.reason":"BackOff"},"resource":{"k8s.object.kind":"Pod","k8s.object.name":"p"}}`
+
+	tests := []struct {
+		name              string
+		capture           string
+		ingested, skipped int
+	}{
+		{"a clean capture skips nothing", good + "\n" + good, 2, 0},
+		{"unparseable json is skipped", good + "\n" + "not json at all", 1, 1},
+		{"a truncated final line is skipped", good + "\n" + `{"timestamp":`, 1, 1},
+		{"an unparseable timestamp is skipped", `{"timestamp":"whenever","resource":{}}`, 0, 1},
+		{"an absent timestamp is skipped", `{"body":"no clock on this one"}`, 0, 1},
+		{"blank lines are formatting, not damage", good + "\n\n   \n\t\n\r\n" + good, 2, 0},
+		{"an empty capture yields nothing at all", "", 0, 0},
+		{"whitespace only yields nothing at all", "\n  \n\t\n", 0, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := otel.New(strings.NewReader(tt.capture))
+
+			var got int
+			for _, ok := d.Next(); ok; _, ok = d.Next() {
+				got++
+			}
+
+			require.NoError(t, d.Err(), "damaged records are not stream errors")
+
+			assert.Equal(t, tt.ingested, got, "Next yielded a different count than Stats claims")
+			assert.Equal(t, tt.ingested, d.Stats().Ingested)
+			assert.Equal(t, tt.skipped, d.Stats().Skipped)
+		})
+	}
+}
+
+// TestOverlongLineSurfacesAsAStreamError separates the two ways a capture can
+// fail. A damaged record is counted and the run continues; a line past the
+// scanner's ceiling stops the stream, and Err is what tells them apart. Without
+// the bound this is an out-of-memory kill instead.
+func TestOverlongLineSurfacesAsAStreamError(t *testing.T) {
+	d := otel.New(strings.NewReader(`{"body":"` + strings.Repeat("x", 2*1024*1024) + `"}`))
+
+	_, ok := d.Next()
+
+	assert.False(t, ok, "the stream stops rather than yielding a partial record")
+	require.Error(t, d.Err(), "a stream-level failure must be visible through Err")
+	assert.ErrorIs(t, d.Err(), bufio.ErrTooLong)
+	assert.Zero(t, d.Stats().Skipped, "an unreadable line is not a skipped record")
+}
+
+// TestSeverityIsWarningOrInfoAndNothingElse covers the mapping's default arm:
+// anything that is not exactly "Warning" is informational, so an unfamiliar
+// severity_text can never be promoted into a warning by accident.
+func TestSeverityIsWarningOrInfoAndNothingElse(t *testing.T) {
+	tests := []struct {
+		text string
+		want event.Severity
+	}{
+		{"Warning", event.SeverityWarning},
+		{"Normal", event.SeverityInfo},
+		{"", event.SeverityInfo},
+		{"warning", event.SeverityInfo},
+		{"Error", event.SeverityInfo},
+	}
+
+	for _, tt := range tests {
+		t.Run("severity_text "+strconv.Quote(tt.text), func(t *testing.T) {
+			line := `{"timestamp":"2024-06-01T10:15:00.000Z","severity_text":` +
+				strconv.Quote(tt.text) + `,"resource":{"k8s.object.kind":"Pod"}}`
+
+			d := otel.New(strings.NewReader(line))
+
+			ev, ok := d.Next()
+			require.True(t, ok)
+			assert.Equal(t, tt.want, ev.Severity)
+		})
+	}
+}
+
+// TestAbsentCountFallsBackRatherThanZeroing keeps a record that omits
+// k8s.event.count worth one occurrence. Zero would erase it from every total
+// downstream.
+func TestAbsentCountFallsBackRatherThanZeroing(t *testing.T) {
+	for _, tt := range []struct {
+		name, attrs string
+		want        int
+	}{
+		{"absent", `{"k8s.event.reason":"BackOff"}`, 1},
+		{"explicitly zero", `{"k8s.event.reason":"BackOff","k8s.event.count":0}`, 1},
+		{"negative", `{"k8s.event.reason":"BackOff","k8s.event.count":-5}`, 1},
+		{"present", `{"k8s.event.reason":"BackOff","k8s.event.count":7}`, 7},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			line := `{"timestamp":"2024-06-01T10:15:00.000Z","attributes":` + tt.attrs +
+				`,"resource":{"k8s.object.kind":"Pod"}}`
+
+			d := otel.New(strings.NewReader(line))
+
+			ev, ok := d.Next()
+			require.True(t, ok)
+			assert.Equal(t, tt.want, ev.Count)
+		})
+	}
+}
+
+// TestTheReusedRecordDoesNotLeakBetweenLines guards the clear in unmarshal. The
+// record struct is reused across every line to keep allocations flat, and
+// encoding/json leaves absent fields untouched; without the clear, an event
+// with no node inherits the previous line's, manufacturing a false correlation
+// rather than merely losing data.
+func TestTheReusedRecordDoesNotLeakBetweenLines(t *testing.T) {
+	withNode := `{"timestamp":"2024-06-01T10:15:00.000Z","attributes":{"k8s.event.reason":"Unhealthy","k8s.namespace.name":"production"},"resource":{"k8s.object.kind":"Pod","k8s.object.name":"a","k8s.node.name":"node-2","k8s.cluster.name":"prod"}}`
+	without := `{"timestamp":"2024-06-01T10:16:00.000Z","attributes":{"k8s.event.reason":"FailedScheduling"},"resource":{"k8s.object.kind":"Pod","k8s.object.name":"b"}}`
+
+	d := otel.New(strings.NewReader(withNode + "\n" + without))
+
+	first, ok := d.Next()
+	require.True(t, ok)
+	require.Equal(t, "node-2", first.Node)
+
+	second, ok := d.Next()
+	require.True(t, ok)
+
+	assert.Empty(t, second.Node, "the second record inherited the first record's node")
+	assert.Empty(t, second.Namespace, "the second record inherited the first record's namespace")
+	assert.Empty(t, second.Cluster, "the second record inherited the first record's cluster")
+	assert.Equal(t, "FailedScheduling", second.Reason)
 }

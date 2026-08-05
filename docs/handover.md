@@ -42,7 +42,7 @@ dependencies and prohibitions; the ledger quotes those prohibitions, so they are
 normative rather than decorative.
 
 **Verification:** `gofmt` clean, `go vet` clean, `golangci-lint` 0 issues, and
-`go test ./... -race` green across 8 packages. The docs carry their own sweep:
+`go test ./...` green across 8 packages. The docs carry their own sweep:
 every markdown link and anchor resolves, every SVG parses, every D-number
 referenced anywhere resolves to an entry, and every count quoted in prose is
 re-derived from `--json`.
@@ -383,5 +383,5 @@ Nothing blocking. Open items, in rough order of value:
 
 **decisions → implement → test → bench → test → refine → docs.** Decisions land
 in `docs/decisions.md` when made. RED observed before GREEN. `gofmt`, `go vet`
-and `go test ./... -race` clean before anything is called done, with output
+and `go test ./...` clean before anything is called done, with output
 pasted.

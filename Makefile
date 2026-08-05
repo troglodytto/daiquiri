@@ -35,17 +35,13 @@ build:
 run: build
 	@./$(BIN_DIR)/$(BINARY) $(ARGS)
 
-## test: run the full test suite with the race detector
+## test: run the full test suite
 test:
-	go test -race -count=1 $(PKG)
-
-## test-short: fast feedback loop, skips anything marked long
-test-short:
-	go test -short -count=1 $(PKG)
+	go test -count=1 $(PKG)
 
 ## cover: test with coverage, print the per-function summary and total
 cover:
-	go test -race -count=1 -coverprofile=coverage.out -covermode=atomic $(PKG)
+	go test -count=1 -coverprofile=coverage.out -covermode=set $(PKG)
 	@go tool cover -func=coverage.out | tail -1
 
 ## cover-html: open the coverage report in a browser
@@ -77,7 +73,7 @@ tidy:
 	@git diff --exit-code go.mod go.sum || { \
 		echo "go.mod/go.sum were not tidy -- commit the update"; exit 1; }
 
-## verify: the full gate -- vet, lint, race tests, gofmt check
+## verify: the full gate -- vet, lint, tests, gofmt check
 verify: vet lint test
 	@test -z "$$(gofmt -l . 2>/dev/null)" || { \
 		echo "unformatted files:"; gofmt -l .; exit 1; }
@@ -118,4 +114,4 @@ hooks:
 clean:
 	rm -rf $(BIN_DIR) coverage.out coverage.html
 
-.PHONY: help build run test test-short cover cover-html bench fmt vet lint tidy verify capture docker-build docker-run tools clean
+.PHONY: help build run test cover cover-html bench fmt vet lint tidy verify capture docker-build docker-run tools clean

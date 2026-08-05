@@ -3,6 +3,7 @@ package triage_test
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,18 +19,47 @@ import (
 // budget is the brief's acceptance criterion for a 20,000-record capture.
 const budget = 5 * time.Second
 
-// run drives the whole pipeline over a fixture.
+// fixtures memoises the pipeline result per capture.
+//
+// Every test in this file drives one of the same six 16MB, 20,000-record
+// captures, and the pipeline is deterministic, so re-running it per call bought
+// nothing: the suite was doing 66 full decode-classify-coalesce-link passes over
+// 6 distinct inputs, about a gigabyte of JSON. Under -race that is the
+// difference between a ten-second gate and a hundred-second one.
+//
+// The Result handed back is shared. No test mutates one, and none should; if a
+// test ever needs to sort or rewrite what it is given, it must copy first.
+var fixtures sync.Map // fixture name -> *capture
+
+type capture struct {
+	once sync.Once
+	res  triage.Result
+	err  error
+}
+
+// run drives the whole pipeline over a fixture, once per fixture per process.
 func run(t *testing.T, fixture string) triage.Result {
 	t.Helper()
 
-	f, err := os.Open("../../testdata/" + fixture)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = f.Close() })
+	v, _ := fixtures.LoadOrStore(fixture, &capture{})
+	c, ok := v.(*capture)
+	require.True(t, ok)
 
-	res, err := triage.New(classify.New()).Run(f)
-	require.NoError(t, err)
+	c.once.Do(func() {
+		f, err := os.Open("../../testdata/" + fixture)
+		if err != nil {
+			c.err = err
 
-	return res
+			return
+		}
+		defer func() { _ = f.Close() }()
+
+		c.res, c.err = triage.New(classify.New()).Run(f)
+	})
+
+	require.NoError(t, c.err)
+
+	return c.res
 }
 
 // find returns the single finding matching workload and reason.

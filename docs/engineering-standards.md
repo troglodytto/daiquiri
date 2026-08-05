@@ -132,8 +132,12 @@ method rather than a stored field (D-56).
   accepted. A blindly regenerated golden is worse than no test.
 - **Benchmarks** with `-benchmem` on ingest, grouping and linking. The 5-second
   budget is an acceptance criterion, so it gets a measurement.
-- **`-race` always.** `make test` runs it. Even single-threaded it's free
-  insurance against the day that stops being true.
+- **No `-race` in the gate.** There is no concurrency in this codebase — no
+  goroutines, no channels, no `sync` outside a test helper — so the detector has
+  nothing to find, and it costs ~10x (the suite is 1.2s without it, 10.5s with).
+  A gate that guards a property held trivially, at ten times the price of
+  everything else, is ceremony. Run `go test -race ./...` by hand when touching
+  anything concurrent, and put it back in `make verify` the day fan-out arrives.
 
 ### 2.3 Pristine output
 
@@ -189,7 +193,7 @@ As configured, `make verify` runs:
 | `gofmt -l`                                                                    | formatting                                           |
 | `go vet`                                                                      | suspicious constructs                                |
 | `golangci-lint` (defaults: errcheck, govet, ineffassign, staticcheck, unused) | unchecked errors, dead code, ineffectual assignments |
-| `go test -race`                                                               | behaviour, and data races                            |
+| `go test`                                                                     | behaviour                                            |
 
 Godoc coverage and the comment standard below are **not** machine-enforced.
 They're review gates, and a review that waves one through is the defect.
