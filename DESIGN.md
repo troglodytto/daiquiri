@@ -510,8 +510,8 @@ Looser. Closer to how I'd actually say it.
 
 ## Go or Rust?
 
-I did ask myself on day one, because I have more mileage in Rust and there was
-a deadline.
+I did weigh it on day one. I know Go well; I've logged more hours in Rust. With
+a deadline attached, that's a question worth ten minutes.
 
 It wasn't close. Kubernetes is Go. The OTel Collector is Go.
 `k8seventsreceiver` is Go. Every piece of prior art I wanted to read while
@@ -535,33 +535,33 @@ me. So I wrote a property test instead: every reason's final rule is
 unconditional, so classification can never fall through. That's the Go answer
 and it's a good one. It spends a test where another language spends a keyword.
 
-## What I actually learned
+## What this project sharpened
 
-I knew Go going in. What I hadn't done is build something end to end in it and
-hold it to a standard, and that's where the learning was.
+**Go, held to a standard.** Table-driven tests, until they became the default
+way I think about a test file. Consumer-declared interfaces, which took a while
+to stop feeling backwards and now look obviously right. Benchmarks with
+`-benchmem`, and the habit of quoting measured numbers rather than guessed ones,
+which caught two of my own claims in this ledger. Golden files, and why
+regenerating one without reading the diff makes it worse than having no test.
 
-Table-driven tests, until they became the default way I think about a test file.
-Consumer-declared interfaces, which took a while to stop feeling backwards.
-Benchmarks with `-benchmem`, and the habit of quoting measured numbers rather
-than guessed ones, which caught me twice. Golden files, and why regenerating one
-without reading the diff makes it worse than having no test.
+**Kubernetes event semantics in an OTel-shaped world.** The thing I'd tell the
+next person: almost none of the difficulty is in the parsing. Reading 20,000
+JSON lines is 100 lines of code. The difficulty is that `ImagePullBackOff` isn't
+an event reason at all and only ever appears inside the _body_ of a `Failed`
+event, and that `BackOff` at `Warning` means crash-loop while `BackOff` at
+`Normal` means image-pull retry. Both are one-line traps that hand you a
+confident wrong answer, and neither is discoverable from the schema. The
+taxonomy reads bodies because of those two.
 
-Telemetry, which I'd never worked with in this shape. What surprised me is how
-much of the difficulty is semantic. Parsing 20,000 JSON lines is 100 lines of
-code. The hard part is knowing that `ImagePullBackOff` isn't an event reason at
-all and only ever shows up inside the _body_ of a `Failed` event. Or that
-`BackOff` at `Warning` means crash-loop while `BackOff` at `Normal` means
-image-pull retry. Both of those are one-line traps that quietly hand you a
-confident wrong answer, and neither is discoverable from the schema.
+**The Forest Data Structure.** The thing in this codebase I'm happiest with, and
+the shape I'll reach for again. One int per node. `Parent < i` makes cycles
+impossible by construction, so there's nothing to check and nothing to test.
+Sorting by time is the topological sort. `Children(i)` scans forward.
 
-And the Forest Data Structure. I'd used trees plenty, but a parent array over a
-time-sorted slice was new to me, and it's the thing in this codebase I'm
-happiest with. One int per node. `Parent < i` makes cycles impossible by
-construction, so there's nothing to check and nothing to test. Sorting by time
-is the topological sort. `Children(i)` scans forward.
-
-That's the bit I'll carry into the next thing: pick the representation so the
-invariant comes free.
+That last one generalises, and it's what I'd take to the next problem: pick the
+representation so the invariant comes free. Every property I'd otherwise defend
+with code, a visited set, a cycle check, an error path, falls out of the layout
+instead.
 
 ## The claim my own data killed
 
