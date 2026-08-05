@@ -19,7 +19,30 @@ That `404` is the whole diagnosis. The rollout shipped a build whose
 `/healthcheck` path no longer exists. It's one substring out of 20,000 records,
 and finding it is the job.
 
-Why it's built the way it is: [`DESIGN.md`](DESIGN.md).
+## Deliverables
+
+**The three test scenarios**, each covering what's broken, how to spot it in the
+tool's output, what to do in the next five minutes, and confidence with what
+would raise it:
+
+| | Verdict |
+|---|---|
+| **[04-test-a](analysis/04-test-a.md)** | `checkout-service` rolled out a build whose health path 404s. All 5 replicas fail readiness, so the Service has zero endpoints. |
+| **[05-test-b](analysis/05-test-b.md)** | `node-4` filled its disk and evicted 10 pods across 6 workloads in 3 namespaces. One node fault wearing six disguises. |
+| **[06-test-c](analysis/06-test-c.md)** | `data-pipeline` scaled to 12 replicas the cluster can't fit. 177 scheduling failures, 6 pods Pending. |
+
+**[ANALYSIS.md](ANALYSIS.md)** indexes those three, adds write-ups of the three
+provided scenarios ([01-healthy](analysis/01-healthy.md),
+[02-memory-leak](analysis/02-memory-leak.md),
+[03-image-pull-failure](analysis/03-image-pull-failure.md)) checked against the
+answers the brief states for them, and maps every acceptance criterion to where
+it holds.
+
+**[DESIGN.md](DESIGN.md)** is why it's built this way: the north star, the
+thread, the Forest Data Structure, and what I'd do differently.
+
+Raw captured output for all six is in [`analysis/`](analysis/) as `.txt` and
+`.json`, with terminal screenshots in [`screenshots/`](screenshots/).
 
 ## Build and run
 
