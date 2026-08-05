@@ -1,0 +1,23 @@
+# The six captures are 95 MB. They get mounted at run time, never baked in.
+testdata/
+
+# Build products and local scratch.
+bin/
+out/
+output/
+coverage.out
+coverage.html
+tree-ui-preview.html
+
+# Nothing the compiler reads.
+.git/
+.githooks/
+.vscode/
+docs/
+extras/
+analysis/
+screenshots/
+*.md
+Makefile
+Dockerfile
+.dockerignore

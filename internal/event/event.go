@@ -1,13 +1,11 @@
 package event
 
-import "time"
+import (
+	"regexp"
+	"time"
+)
 
 // Severity ranks how much an event matters to an on-call engineer.
-//
-// The ordering is meaningful and load-bearing: report sorts findings by
-// severity, and an ordered integer makes that a comparison rather than a lookup
-// table. SeverityInfo is deliberately the zero value, so that a zero Event is
-// the least urgent thing rather than accidentally the most urgent.
 type Severity int
 
 // Severity levels, ordered least to most urgent. Do not reorder: the zero value
@@ -35,10 +33,20 @@ func (s Severity) String() string {
 	}
 }
 
+// Kubernetes object kinds the pipeline reasons about by name.
+const (
+	KindPod        = "Pod"
+	KindReplicaSet = "ReplicaSet"
+	KindNode       = "Node"
+)
+
+// Owner-name patterns, anchored so a partial match cannot strip anything.
+var (
+	podOwner        = regexp.MustCompile(`^(.+)-[0-9a-f]{9}-[0-9a-z]{5}$`)
+	replicaSetOwner = regexp.MustCompile(`^(.+)-[0-9a-f]{9}$`)
+)
+
 // Object identifies the Kubernetes resource an event is about.
-//
-// The three fields travel together because group keys on the object as a unit;
-// passing them loose invites transposing two strings at a call site.
 type Object struct {
 	// Kind is the resource kind: Pod, ReplicaSet, Deployment, Node.
 	Kind string
@@ -50,6 +58,29 @@ type Object struct {
 	// deleted and recreated under the same name is the same logical service for
 	// triage purposes, even though its UID changed.
 	UID string
+}
+
+// Workload returns the workload that owns the object, or the object's own name
+// when it owns itself.
+//
+// Total and conservative. Dispatching on Kind keeps a Node called "node-4" from
+// looking like an owned resource, and an unmatched name comes back unchanged, so
+// the failure mode is no rollup instead of a wrong one. Clusters using a
+// different hash alphabet just group by instance. See D-07.
+func (o Object) Workload() string {
+	switch o.Kind {
+	case KindPod:
+		if m := podOwner.FindStringSubmatch(o.Name); m != nil {
+			return m[1]
+		}
+
+	case KindReplicaSet:
+		if m := replicaSetOwner.FindStringSubmatch(o.Name); m != nil {
+			return m[1]
+		}
+	}
+
+	return o.Name
 }
 
 // Event is one normalized Kubernetes event occurrence.
@@ -92,16 +123,21 @@ type Event struct {
 
 	// Count is how many occurrences this single record represents.
 	//
-	// In a watch-based pipeline -- which is what all six provided fixtures are --
+	// In a watch-based pipeline; which is what all six provided fixtures are,
 	// this is always 1 and one record means one occurrence. In a pipeline that
 	// re-emits a log each time the API server increments its count, one logical
 	// event appears repeatedly with a rising count. The brief requires grouping
 	// to be correct in either case, so group sums max(Count) per distinct
-	// EventUID rather than summing Count or counting records.
+	// EventUID. Summing Count double-counts; counting records under-counts.
 	Count int
 
 	// EventUID identifies the underlying API-server Event object. It exists so
 	// that repeated records describing the same logical event can be collapsed
-	// rather than double-counted. See Count.
+	//. See Count.
 	EventUID string
+}
+
+// GroupKey is the doc's required grouping tuple.
+func (e Event) GroupKey() string {
+	return e.Object.Kind + "|" + e.Object.Name
 }

@@ -1,0 +1,41 @@
+KUBERNETES CLUSTER EVENT TRIAGE  prod-us-east-1
+20,000 records, 19,984 filtered as noise, 7 findings, 3 suppressed as background (132ms)
+
+TIME          SEVERITY  WORKLOAD              NAMESPACE   REASON               COUNT  PODS  WINDOW   NODES   PATTERN
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:15:00.000  CRITICAL  node-4                default     NodeHasDiskPressure      1     -  instant  node-4  node issue
+10:15:15.359  WARNING   batch-reporter        data        Evicted                  1     1  instant  node-4  node issue
+10:15:25.779  WARNING   data-pipeline         data        Evicted                  3     3  4m31s    node-4  node issue
+10:15:48.657  WARNING   metrics-collector     data        Evicted                  2     2  20s      node-4  node issue
+10:16:25.429  WARNING   auth-service          production  Evicted                  1     1  instant  node-4  node issue
+10:16:28.595  WARNING   inventory-service     production  Evicted                  2     2  3m0s     node-4  node issue
+10:16:37.935  WARNING   notification-service  staging     Evicted                  1     1  instant  node-4  node issue
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+━━ INCIDENT 1 of 1 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CRITICAL · explained ━━
+
+   ROOT CAUSE    node-4 reported NodeHasDiskPressure  at 10:15:00.000
+                 node is under disk pressure and will evict pods
+                 → a machine in the cluster is running out of disk, and Kubernetes has
+                   started killing pods on it to reclaim space
+                 │ Node node-4 status is now: NodeHasDiskPressure
+
+   IMPACT        11 events · 10 pods · 6 workloads · 3 namespaces · 4m57s · stopped before capture end
+
+  ── how we got there ────────────────────────────────────────────────────────────────────
+
+  ● 10:15:00.000  NodeHasDiskPressure  node-4 · default                                   ×1
+     node issue
+     ▪ Node node-4 status is now: NodeHasDiskPressure  1/1
+     ▾ evicted 6 workloads across 3 namespaces in 1m37.9s, each reporting:
+       The node had condition: [DiskPressure].
+
+     ├─ 10:15:15.359  Evicted  batch-reporter · data                      ×1 · 1 pod  +15.4s
+     ├─ 10:15:25.779  Evicted  data-pipeline · data              ×3 · 3 pods · 4m31s  +25.8s
+     ├─ 10:15:48.657  Evicted  metrics-collector · data            ×2 · 2 pods · 20s  +48.7s
+     ├─ 10:16:25.429  Evicted  auth-service · production                ×1 · 1 pod  +1m25.4s
+     ├─ 10:16:28.595  Evicted  inventory-service · production   ×2 · 2 pods · 3m0s  +1m28.6s
+     ╰─ 10:16:37.935  Evicted  notification-service · staging           ×1 · 1 pod  +1m37.9s
+
+   RECOMMENDED   free disk on node-4 and stop scheduling onto it: kubectl describe node node-4; kubectl cordon node-4
+

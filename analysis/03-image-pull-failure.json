@@ -1,0 +1,882 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "daiquiri",
+    "version": "dev",
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture": {
+    "cluster": "prod-us-east-1",
+    "records_ingested": 20000,
+    "records_skipped": 0,
+    "records_filtered_as_noise": 19952,
+    "records_unrecognised": 0,
+    "observation_end": "2024-06-01T10:29:59.057Z",
+    "elapsed_ms": 141.451
+  },
+  "incidents": [
+    {
+      "severity": "CRITICAL",
+      "confidence": "explained",
+      "root": 3,
+      "mechanism": 4,
+      "paged": 5,
+      "members": [
+        3,
+        4,
+        5
+      ],
+      "events": 42,
+      "pods": 3,
+      "workloads": 1,
+      "namespaces": 1,
+      "first_seen": "2024-06-01T10:17:59.977Z",
+      "last_seen": "2024-06-01T10:28:19.312Z",
+      "span": "10m19.335s",
+      "still_failing": true,
+      "remediation": "confirm the tag exists, then roll back: kubectl rollout undo deploy/payment-service -n production"
+    }
+  ],
+  "findings": [
+    {
+      "index": 0,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/memory-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under resource pressure",
+        "meaning": "this pod was killed to protect a machine running low on memory, usually because it asked for less than it actually uses",
+        "fix": "set or raise the memory request for {workload} so the scheduler reserves what it uses"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "data-pipeline-c7a123947-279e1"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:03:20.579Z",
+        "last_seen": "2024-06-01T10:03:20.579Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:03:20.579Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "object": "data-pipeline-c7a123947-279e1",
+          "node": "node-4",
+          "event_uid": "34c4850a-5b90-255a-eca7-ae85c6bd4b58",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "identity": {
+        "kind": "Pod",
+        "workload": "auth-service",
+        "namespace": "production",
+        "reason": "Unhealthy",
+        "rule": "unhealthy/readiness"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "readiness probe failing; the pod is being kept out of service",
+        "meaning": "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
+        "fix": "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 3,
+        "pods": [
+          "auth-service-df386e8ed-089dd"
+        ],
+        "nodes": [
+          "node-1"
+        ],
+        "first_seen": "2024-06-01T10:07:20.083Z",
+        "last_seen": "2024-06-01T10:07:31.268Z",
+        "span": "11.185s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "count": 3,
+          "specific": true,
+          "means": "the connection was not refused, and no answer arrived inside the probe's timeout"
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:07:20.083Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.92:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "auth-service-df386e8ed-089dd",
+          "node": "node-1",
+          "event_uid": "9a332fe5-8328-cd4b-82ff-2ee58f15ebce",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:26.505Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.92:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "auth-service-df386e8ed-089dd",
+          "node": "node-1",
+          "event_uid": "bdab2320-f999-9301-c2d7-a267236fef3a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:07:31.268Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.11.92:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "auth-service-df386e8ed-089dd",
+          "node": "node-1",
+          "event_uid": "efd75736-0b65-9b98-ec87-d0f86b88a046",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "kind": "Pod",
+        "workload": "recommendation-service",
+        "namespace": "production",
+        "reason": "FailedMount",
+        "rule": "failed-mount"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "volume mount failed; a referenced configmap or secret is likely missing",
+        "meaning": "the pod is waiting for a configmap or secret that does not exist, so it cannot start until that config is created",
+        "fix": "create the missing configmap or secret, or fix its name in the pod spec"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "recommendation-service-4ff1a5caf-d7e71"
+        ],
+        "nodes": [
+          "node-6"
+        ],
+        "first_seen": "2024-06-01T10:15:55.863Z",
+        "last_seen": "2024-06-01T10:15:55.863Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "MountVolume.SetUp failed for volume \"config\" : configmap \"recommendation-service-config\" not found",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:15:55.863Z",
+          "severity": "WARNING",
+          "reason": "FailedMount",
+          "body": "MountVolume.SetUp failed for volume \"config\" : configmap \"recommendation-service-config\" not found",
+          "object": "recommendation-service-4ff1a5caf-d7e71",
+          "node": "node-6",
+          "event_uid": "729b374b-ecb1-1758-6c8f-66ce9a2d2b64",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "identity": {
+        "kind": "Deployment",
+        "workload": "payment-service",
+        "namespace": "production",
+        "reason": "ScalingReplicaSet",
+        "rule": "deploy/scaled"
+      },
+      "verdict": {
+        "category": "DEPLOY",
+        "severity": "INFO",
+        "recognised": true,
+        "cause": "deployment scaled; a rollout occurred here"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [],
+        "nodes": [],
+        "first_seen": "2024-06-01T10:17:59.977Z",
+        "last_seen": "2024-06-01T10:17:59.977Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": false,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Scaled up replica set payment-service-9e3f1a2b8 to 3",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:17:59.977Z",
+          "severity": "INFO",
+          "reason": "ScalingReplicaSet",
+          "body": "Scaled up replica set payment-service-9e3f1a2b8 to 3",
+          "object": "payment-service",
+          "event_uid": "20758d45-bdb1-e568-4fa7-80d22cea1b0d",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "identity": {
+        "kind": "Pod",
+        "workload": "payment-service",
+        "namespace": "production",
+        "reason": "Failed",
+        "rule": "failed/image-pull"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "image pull failed; the tag or registry credentials are likely wrong",
+        "meaning": "the image this deployment asks for does not exist where it is looking -- most often a tag that was never pushed, or a typo in the version",
+        "fix": "confirm the tag exists, then roll back: kubectl rollout undo deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 24,
+        "pods": [
+          "payment-service-9e3f1a2b8-005e2",
+          "payment-service-9e3f1a2b8-45cbb",
+          "payment-service-9e3f1a2b8-b8c2e"
+        ],
+        "nodes": [
+          "node-2",
+          "node-3",
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:18:04.412Z",
+        "last_seen": "2024-06-01T10:28:19.312Z",
+        "span": "10m14.9s"
+      },
+      "diagnosis": {
+        "pattern": "deploy-correlated failure",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Failed to pull image \"registry.internal/payment-service:v2.14.0-rc3\": rpc error: code = NotFound desc = manifest for registry.internal/payment-service:v2.14.0-rc3 not found",
+          "count": 3,
+          "specific": true
+        },
+        {
+          "text": "Error: ImagePullBackOff",
+          "count": 18,
+          "specific": false
+        },
+        {
+          "text": "Error: ErrImagePull",
+          "count": 3,
+          "specific": false
+        }
+      ],
+      "cadence": {
+        "intervals_measured": 21,
+        "objects": 3,
+        "median": "40.538s",
+        "shortest": "43ms",
+        "longest": "5m0.571s",
+        "early_mean": "13.486s",
+        "late_mean": "2m35.009s",
+        "trend": "easing"
+      },
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "rollout-replicaset",
+        "evidence": "rollout created replica set payment-service-9e3f1a2b8 4.4s earlier; all 3 affected pods belong to it",
+        "delay": "4.435s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:18:04.412Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Failed to pull image \"registry.internal/payment-service:v2.14.0-rc3\": rpc error: code = NotFound desc = manifest for registry.internal/payment-service:v2.14.0-rc3 not found",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "9a8f458c-7197-fdae-696e-155ab96ecfb8",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:04.547Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ErrImagePull",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "20bafb12-11e8-06c1-42ae-434a2d0ad57f",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:05.110Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Failed to pull image \"registry.internal/payment-service:v2.14.0-rc3\": rpc error: code = NotFound desc = manifest for registry.internal/payment-service:v2.14.0-rc3 not found",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "ab503b5c-b076-26e5-6dc9-c37c00415e21",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:05.153Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ErrImagePull",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "feb6a960-5f68-e8a4-1687-001da713af71",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:05.484Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Failed to pull image \"registry.internal/payment-service:v2.14.0-rc3\": rpc error: code = NotFound desc = manifest for registry.internal/payment-service:v2.14.0-rc3 not found",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "004cfa20-c385-79a8-3a68-cbb066caf0b3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:05.617Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ErrImagePull",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "ab59b3b3-7f1f-b104-42d0-7e0e9cad4c81",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:14.947Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "bc6d24a9-4930-0821-4bb3-2754cf7c5df0",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:16.043Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "95bc188d-8e0b-9c12-99f1-1ccdee4a9726",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:16.395Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "d3deb6d1-a0b0-1241-de67-65610b1b0d58",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:35.263Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "41c00c79-5121-9efa-0abc-23fccc73b52e",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:36.983Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "c892e300-0535-76ea-377f-785d4d100dc3",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:37.080Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "2941a90c-f8a1-a439-f5a3-41375ab29cf2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:15.801Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "81d2d371-9da8-b459-1e37-e1c08f65bd40",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:17.026Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "ad4be42c-ecc9-aaba-f466-0b93b38cea8d",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:17.847Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "e9d28150-3ffa-c229-9d2b-f0c343a8c6ee",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:35.944Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "868b57f0-0402-e0f3-5cfd-e8991724e344",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:38.192Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "732d0092-a090-42f9-90ba-417fd2d9cd2a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:38.361Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "5bc7a2a0-4c2c-7c19-a6f6-03505d3aa3b5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:16.774Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "fc916c25-7b84-66bc-7369-8f8346a91653",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:18.481Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "1714b3a0-6189-b6e8-94c7-9cdf5628eb73",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:18.854Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "bcb1273d-4e63-bc91-0ab5-52a4d654ac6c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:17.345Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "e8403b47-f1aa-e514-e6f8-be7913f8b0e4",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:18.304Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "db76e22b-fd1e-7979-c9de-be77e71a0d8b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:19.312Z",
+          "severity": "WARNING",
+          "reason": "Failed",
+          "body": "Error: ImagePullBackOff",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "0c270de8-3c8b-9a5a-f146-a630be8b895d",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "identity": {
+        "kind": "Pod",
+        "workload": "payment-service",
+        "namespace": "production",
+        "reason": "BackOff",
+        "rule": "backoff/image-pull-retry"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "repeated image-pull retry; the image cannot be fetched",
+        "meaning": "Kubernetes keeps retrying a download that cannot succeed, and will keep waiting longer between attempts until the image is fixed",
+        "fix": "same fix as the pull failure above; the retry stops when the image resolves"
+      },
+      "shape": {
+        "occurrences": 18,
+        "pods": [
+          "payment-service-9e3f1a2b8-005e2",
+          "payment-service-9e3f1a2b8-45cbb",
+          "payment-service-9e3f1a2b8-b8c2e"
+        ],
+        "nodes": [
+          "node-2",
+          "node-3",
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:18:14.858Z",
+        "last_seen": "2024-06-01T10:28:19.219Z",
+        "span": "10m4.361s"
+      },
+      "diagnosis": {
+        "pattern": "deploy-correlated failure",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "count": 18,
+          "specific": true
+        }
+      ],
+      "cadence": {
+        "intervals_measured": 15,
+        "objects": 3,
+        "median": "1m20.409s",
+        "shortest": "20.382s",
+        "longest": "5m0.739s",
+        "early_mean": "37.636s",
+        "late_mean": "3m13.029s",
+        "trend": "easing"
+      },
+      "edge": {
+        "parent": 4,
+        "kind": "caused",
+        "rule": "same-pod",
+        "evidence": "same pod payment-service-9e3f1a2b8-005e2, 10.4s after Failed",
+        "delay": "10.446s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:18:14.858Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "46208c24-8b7c-4cc9-c83e-63bad31a8c9b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:15.863Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "158f98dd-68d7-e71e-b8ec-a91c2ffc26f6",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:16.321Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "ca153ae3-0e6c-14b0-8c88-74a511fc8a3a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:35.240Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "2e460fb6-f3f3-b1a3-6fe2-bb817450af36",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:36.834Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "0e53bee0-d447-b1d2-f7d4-6a33dbcdd824",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:18:36.929Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "1c76a782-6c8f-2aec-b5f8-81098f4be56a",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:15.699Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "879857d9-d287-d87c-8be9-5951fd3ac246",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:16.990Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "460cc0ea-904c-4fa6-6547-ad618ad5a941",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:17.734Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "b6d2be75-4829-dd28-4e11-080969e88f7c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:35.769Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "f1b8383a-2b61-a57a-e226-52f755f55c6b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:38.143Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "b8dd482a-5ad8-6e85-d779-8221a325b13c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:20:38.196Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "47bb8efe-a33d-6e59-710a-99731a86d2f5",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:16.582Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "1577ebd1-a0c6-ce5e-6e1c-bdeaa08595b2",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:18.456Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "410f7886-a2f7-c2ec-03f3-081bc6ac9901",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:23:18.745Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "e916208e-ad92-e9e8-c1ae-80fa66db6f7c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:17.321Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-45cbb",
+          "node": "node-4",
+          "event_uid": "4f9f720d-35cd-10fe-dd0b-170383847b2b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:18.182Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-005e2",
+          "node": "node-2",
+          "event_uid": "97fc1bea-7f40-ddd5-a61d-e02a5ef4b551",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:28:19.219Z",
+          "severity": "INFO",
+          "reason": "BackOff",
+          "body": "Back-off pulling image \"registry.internal/payment-service:v2.14.0-rc3\"",
+          "object": "payment-service-9e3f1a2b8-b8c2e",
+          "node": "node-3",
+          "event_uid": "7f9c62d1-3cf1-8cc9-a06a-cd791459be6a",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

@@ -6,8 +6,9 @@
 BINARY      := daiquiri
 PKG         := ./...
 BIN_DIR     := bin
-OUT_DIR     := out
+OUT_DIR     := analysis
 TESTDATA    := testdata
+IMAGE       := daiquiri
 VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS     := -X main.version=$(VERSION)
 GOLANGCI_VERSION := v2.1.6
@@ -82,7 +83,7 @@ verify: vet lint test
 		echo "unformatted files:"; gofmt -l .; exit 1; }
 	@echo "verify: OK"
 
-## capture: run the tool over every scenario, writing deliverable output to out/
+## capture: regenerate the submitted output in analysis/ for every scenario
 capture: build
 	@mkdir -p $(OUT_DIR)
 	@for f in $(TESTDATA)/*.jsonl; do \
@@ -91,6 +92,17 @@ capture: build
 		./$(BIN_DIR)/$(BINARY) --json $$f > $(OUT_DIR)/$$name.json 2>&1 || true; \
 		echo "captured $$name"; \
 	done
+	@./$(BIN_DIR)/$(BINARY) --trace auth-service $(TESTDATA)/05-test-b.jsonl \
+		> $(OUT_DIR)/05-test-b-trace-auth-service.txt 2>&1 || true
+	@echo "captured 05-test-b --trace auth-service"
+
+## docker-build: build the container image
+docker-build:
+	docker build --build-arg VERSION=$(VERSION) -t $(IMAGE):$(VERSION) -t $(IMAGE):latest .
+
+## docker-run: run the image against ARGS (e.g. make docker-run ARGS=04-test-a.jsonl)
+docker-run: docker-build
+	docker run --rm -t -v "$(CURDIR)/$(TESTDATA):/data:ro" $(IMAGE):latest /data/$(ARGS)
 
 ## tools: install pinned development tooling
 tools:
@@ -106,4 +118,4 @@ hooks:
 clean:
 	rm -rf $(BIN_DIR) coverage.out coverage.html
 
-.PHONY: help build run test test-short cover cover-html bench fmt vet lint tidy verify capture tools clean
+.PHONY: help build run test test-short cover cover-html bench fmt vet lint tidy verify capture docker-build docker-run tools clean

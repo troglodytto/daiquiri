@@ -1,0 +1,771 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "daiquiri",
+    "version": "dev",
+    "causal_window": "5m0s",
+    "thresholds": {
+      "transient_max_count": 10,
+      "transient_max_pods": 1,
+      "transient_max_span": "1m0s",
+      "still_failing_within": "2m0s"
+    }
+  },
+  "capture": {
+    "cluster": "prod-us-east-1",
+    "records_ingested": 20000,
+    "records_skipped": 0,
+    "records_filtered_as_noise": 19984,
+    "records_unrecognised": 0,
+    "observation_end": "2024-06-01T10:29:59.057Z",
+    "elapsed_ms": 147.652
+  },
+  "incidents": [
+    {
+      "severity": "CRITICAL",
+      "confidence": "explained",
+      "root": 3,
+      "mechanism": 3,
+      "paged": null,
+      "members": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "events": 11,
+      "pods": 10,
+      "workloads": 6,
+      "namespaces": 3,
+      "first_seen": "2024-06-01T10:15:00.000Z",
+      "last_seen": "2024-06-01T10:19:56.562Z",
+      "span": "4m56.562s",
+      "still_failing": false,
+      "remediation": "free disk on node-4 and stop scheduling onto it: kubectl describe node node-4; kubectl cordon node-4"
+    }
+  ],
+  "findings": [
+    {
+      "index": 0,
+      "identity": {
+        "kind": "Pod",
+        "workload": "batch-reporter",
+        "namespace": "data",
+        "reason": "Unhealthy",
+        "rule": "unhealthy/readiness"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "readiness probe failing; the pod is being kept out of service",
+        "meaning": "the application is running but not answering its health check, so it is being kept out of the load balancer and serving no traffic",
+        "fix": "confirm the probe path exists in the new image: kubectl rollout history deploy/{workload} -n {namespace}"
+      },
+      "shape": {
+        "occurrences": 3,
+        "pods": [
+          "batch-reporter-19cb12bab-7143a"
+        ],
+        "nodes": [
+          "node-5"
+        ],
+        "first_seen": "2024-06-01T10:01:29.089Z",
+        "last_seen": "2024-06-01T10:01:44.735Z",
+        "span": "15.646s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "Readiness probe failed: Get \"http://<ip>:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "count": 3,
+          "specific": true,
+          "means": "the connection was not refused, and no answer arrived inside the probe's timeout"
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:01:29.089Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.0.14:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "batch-reporter-19cb12bab-7143a",
+          "node": "node-5",
+          "event_uid": "08d5a9e6-6315-0a03-3a49-0e6c7fbce941",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:01:34.923Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.0.14:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "batch-reporter-19cb12bab-7143a",
+          "node": "node-5",
+          "event_uid": "afb5ae5d-7599-6a39-f39e-4bc9054230e9",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:01:44.735Z",
+          "severity": "WARNING",
+          "reason": "Unhealthy",
+          "body": "Readiness probe failed: Get \"http://10.244.0.14:8080/readyz\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)",
+          "object": "batch-reporter-19cb12bab-7143a",
+          "node": "node-5",
+          "event_uid": "4ac8fa40-d538-ea3a-b965-70d13a2319de",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/memory-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under resource pressure",
+        "meaning": "this pod was killed to protect a machine running low on memory, usually because it asked for less than it actually uses",
+        "fix": "set or raise the memory request for {workload} so the scheduler reserves what it uses"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "data-pipeline-7a960e693-836d4"
+        ],
+        "nodes": [
+          "node-2"
+        ],
+        "first_seen": "2024-06-01T10:02:32.345Z",
+        "last_seen": "2024-06-01T10:02:32.345Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:02:32.345Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node was low on resource: memory. Container pipeline was using 612Mi, which exceeds its request of 256Mi.",
+          "object": "data-pipeline-7a960e693-836d4",
+          "node": "node-2",
+          "event_uid": "37c04fac-03c6-8f47-c95a-553569fdc0d6",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "identity": {
+        "kind": "Pod",
+        "workload": "api-gateway",
+        "namespace": "production",
+        "reason": "FailedMount",
+        "rule": "failed-mount"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "volume mount failed; a referenced configmap or secret is likely missing",
+        "meaning": "the pod is waiting for a configmap or secret that does not exist, so it cannot start until that config is created",
+        "fix": "create the missing configmap or secret, or fix its name in the pod spec"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "api-gateway-671566a46-799ae"
+        ],
+        "nodes": [
+          "node-1"
+        ],
+        "first_seen": "2024-06-01T10:06:03.999Z",
+        "last_seen": "2024-06-01T10:06:03.999Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "transient blip",
+        "confidence": "unexplained",
+        "suppressed": true,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "MountVolume.SetUp failed for volume \"config\" : configmap \"api-gateway-config\" not found",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:06:03.999Z",
+          "severity": "WARNING",
+          "reason": "FailedMount",
+          "body": "MountVolume.SetUp failed for volume \"config\" : configmap \"api-gateway-config\" not found",
+          "object": "api-gateway-671566a46-799ae",
+          "node": "node-1",
+          "event_uid": "78bcdc06-dce9-2b47-7691-272308b7eff5",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "identity": {
+        "kind": "Node",
+        "workload": "node-4",
+        "namespace": "default",
+        "reason": "NodeHasDiskPressure",
+        "rule": "node/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "CRITICAL",
+        "recognised": true,
+        "cause": "node is under disk pressure and will evict pods",
+        "meaning": "a machine in the cluster is running out of disk, and Kubernetes has started killing pods on it to reclaim space",
+        "fix": "free disk on {node} and stop scheduling onto it: kubectl describe node {node}; kubectl cordon {node}"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:15:00.000Z",
+        "last_seen": "2024-06-01T10:15:00.000Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": true,
+          "it_explains_nothing": false
+        }
+      },
+      "signatures": [
+        {
+          "text": "Node node-4 status is now: NodeHasDiskPressure",
+          "count": 1,
+          "specific": true
+        }
+      ],
+      "cadence": null,
+      "edge": null,
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:15:00.000Z",
+          "severity": "WARNING",
+          "reason": "NodeHasDiskPressure",
+          "body": "Node node-4 status is now: NodeHasDiskPressure",
+          "object": "node-4",
+          "node": "node-4",
+          "event_uid": "c7593233-8cbc-f9f6-ef23-5b59b592fdcf",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "identity": {
+        "kind": "Pod",
+        "workload": "batch-reporter",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under disk pressure",
+        "meaning": "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
+        "fix": "fix the node condition first; the pods will reschedule once {node} recovers"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "batch-reporter-820090759-b420b"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:15:15.359Z",
+        "last_seen": "2024-06-01T10:15:15.359Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node had condition: [DiskPressure].",
+          "count": 1,
+          "specific": false
+        }
+      ],
+      "cadence": null,
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "node-condition-named",
+        "evidence": "node-4 reported DiskPressure 15.4s earlier, and this record names it: \"The node had condition: [DiskPressure].\"",
+        "delay": "15.359s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:15:15.359Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "batch-reporter-820090759-b420b",
+          "node": "node-4",
+          "event_uid": "b8e19970-f2e2-133b-bb44-309d2564a930",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "identity": {
+        "kind": "Pod",
+        "workload": "data-pipeline",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under disk pressure",
+        "meaning": "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
+        "fix": "fix the node condition first; the pods will reschedule once {node} recovers"
+      },
+      "shape": {
+        "occurrences": 3,
+        "pods": [
+          "data-pipeline-26f6fad4e-0e53b",
+          "data-pipeline-de2124cc2-7a2a0",
+          "data-pipeline-de2124cc2-9e145"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:15:25.779Z",
+        "last_seen": "2024-06-01T10:19:56.562Z",
+        "span": "4m30.783s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node had condition: [DiskPressure].",
+          "count": 3,
+          "specific": false
+        }
+      ],
+      "cadence": null,
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "node-condition-named",
+        "evidence": "node-4 reported DiskPressure 25.8s earlier, and this record names it: \"The node had condition: [DiskPressure].\"",
+        "delay": "25.779s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:15:25.779Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "data-pipeline-26f6fad4e-0e53b",
+          "node": "node-4",
+          "event_uid": "785d4d10-0dc3-333a-8dfa-722c39fbb4ed",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:15:43.272Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "data-pipeline-de2124cc2-7a2a0",
+          "node": "node-4",
+          "event_uid": "1bc6ac99-01d0-1714-b3a0-6189b6e894c7",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:56.562Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "data-pipeline-de2124cc2-9e145",
+          "node": "node-4",
+          "event_uid": "38cabec6-3405-bb2f-4188-c20c93cbf105",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "identity": {
+        "kind": "Pod",
+        "workload": "metrics-collector",
+        "namespace": "data",
+        "reason": "Evicted",
+        "rule": "evicted/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under disk pressure",
+        "meaning": "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
+        "fix": "fix the node condition first; the pods will reschedule once {node} recovers"
+      },
+      "shape": {
+        "occurrences": 2,
+        "pods": [
+          "metrics-collector-46dcac1b0-35a6d",
+          "metrics-collector-e8e601600-73ab5"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:15:48.657Z",
+        "last_seen": "2024-06-01T10:16:08.629Z",
+        "span": "19.972s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node had condition: [DiskPressure].",
+          "count": 2,
+          "specific": false
+        }
+      ],
+      "cadence": null,
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "node-condition-named",
+        "evidence": "node-4 reported DiskPressure 48.7s earlier, and this record names it: \"The node had condition: [DiskPressure].\"",
+        "delay": "48.657s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:15:48.657Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "metrics-collector-46dcac1b0-35a6d",
+          "node": "node-4",
+          "event_uid": "05ac851e-7db6-431d-3d35-c0aa1e798f0b",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:16:08.629Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "metrics-collector-e8e601600-73ab5",
+          "node": "node-4",
+          "event_uid": "a7e99fa5-ef68-4ed5-c70e-38f2f801acd6",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "identity": {
+        "kind": "Pod",
+        "workload": "auth-service",
+        "namespace": "production",
+        "reason": "Evicted",
+        "rule": "evicted/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under disk pressure",
+        "meaning": "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
+        "fix": "fix the node condition first; the pods will reschedule once {node} recovers"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "auth-service-cb5f88109-57949"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:16:25.429Z",
+        "last_seen": "2024-06-01T10:16:25.429Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node had condition: [DiskPressure].",
+          "count": 1,
+          "specific": false
+        }
+      ],
+      "cadence": null,
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "node-condition-named",
+        "evidence": "node-4 reported DiskPressure 1m25.4s earlier, and this record names it: \"The node had condition: [DiskPressure].\"",
+        "delay": "1m25.429s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:16:25.429Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "auth-service-cb5f88109-57949",
+          "node": "node-4",
+          "event_uid": "3ffac229-9d2b-f0c3-43a8-c6ee0a1fa4b9",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "identity": {
+        "kind": "Pod",
+        "workload": "inventory-service",
+        "namespace": "production",
+        "reason": "Evicted",
+        "rule": "evicted/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under disk pressure",
+        "meaning": "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
+        "fix": "fix the node condition first; the pods will reschedule once {node} recovers"
+      },
+      "shape": {
+        "occurrences": 2,
+        "pods": [
+          "inventory-service-417fd2d9c-083cc",
+          "inventory-service-417fd2d9c-d840f"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:16:28.595Z",
+        "last_seen": "2024-06-01T10:19:28.413Z",
+        "span": "2m59.818s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": false,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node had condition: [DiskPressure].",
+          "count": 2,
+          "specific": false
+        }
+      ],
+      "cadence": null,
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "node-condition-named",
+        "evidence": "node-4 reported DiskPressure 1m28.6s earlier, and this record names it: \"The node had condition: [DiskPressure].\"",
+        "delay": "1m28.595s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:16:28.595Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "inventory-service-417fd2d9c-083cc",
+          "node": "node-4",
+          "event_uid": "8cc9a06a-cd79-1459-be6a-4f0c270de83c",
+          "count": 1
+        },
+        {
+          "timestamp": "2024-06-01T10:19:28.413Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "inventory-service-417fd2d9c-d840f",
+          "node": "node-4",
+          "event_uid": "c977691a-a089-10b9-de28-579220298a59",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "identity": {
+        "kind": "Pod",
+        "workload": "notification-service",
+        "namespace": "staging",
+        "reason": "Evicted",
+        "rule": "evicted/disk-pressure"
+      },
+      "verdict": {
+        "category": "ISSUE",
+        "severity": "WARNING",
+        "recognised": true,
+        "cause": "pod evicted because its node was under disk pressure",
+        "meaning": "this pod was killed to protect a machine that was running out of disk -- the pod is the victim, not the cause",
+        "fix": "fix the node condition first; the pods will reschedule once {node} recovers"
+      },
+      "shape": {
+        "occurrences": 1,
+        "pods": [
+          "notification-service-1afa35f80-97fed"
+        ],
+        "nodes": [
+          "node-4"
+        ],
+        "first_seen": "2024-06-01T10:16:37.935Z",
+        "last_seen": "2024-06-01T10:16:37.935Z",
+        "span": "0s"
+      },
+      "diagnosis": {
+        "pattern": "node issue",
+        "confidence": "explained",
+        "suppressed": false,
+        "because": {
+          "is_a_recognised_failure": true,
+          "is_small_on_every_axis": true,
+          "nothing_explains_it": false,
+          "it_explains_nothing": true
+        }
+      },
+      "signatures": [
+        {
+          "text": "The node had condition: [DiskPressure].",
+          "count": 1,
+          "specific": false
+        }
+      ],
+      "cadence": null,
+      "edge": {
+        "parent": 3,
+        "kind": "caused",
+        "rule": "node-condition-named",
+        "evidence": "node-4 reported DiskPressure 1m37.9s earlier, and this record names it: \"The node had condition: [DiskPressure].\"",
+        "delay": "1m37.935s"
+      },
+      "records": [
+        {
+          "timestamp": "2024-06-01T10:16:37.935Z",
+          "severity": "WARNING",
+          "reason": "Evicted",
+          "body": "The node had condition: [DiskPressure]. ",
+          "object": "notification-service-1afa35f80-97fed",
+          "node": "node-4",
+          "event_uid": "62ea8574-d012-34d1-b458-c565a99a8f45",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
