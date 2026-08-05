@@ -59,6 +59,19 @@ Or without building:
 go run ./cmd/triage testdata/04-test-a.jsonl
 ```
 
+**Give it a wide window.** The output is laid out for a terminal, and a narrow
+one will wrap it into a mess. Measured across these six captures:
+
+| View | Needs | Why |
+|---|---|---|
+| `--tree` | ~105 columns | text wraps to a fixed 92-column frame, and the indent and glyphs sit outside it |
+| `--table` | up to ~145 columns | columns size to their content, so a longer workload name makes it wider |
+| the `RECOMMENDED` line | up to 160 columns | it's a `kubectl` command and is deliberately never wrapped, because a wrapped command can't be pasted |
+
+**160 columns clears everything here.** If your window is narrower, use `-tree`,
+which is bounded and stays readable, or pipe to a file and open it in an editor.
+Nothing is lost either way, since the layout is the only thing that suffers.
+
 Or through the Makefile, which stamps the version from `git describe`:
 
 ```sh
