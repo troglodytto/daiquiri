@@ -376,7 +376,7 @@ tracked as `O-04` in the decision ledger.
 | [`analysis/*.md`](analysis/) | one diagnosis per scenario: what's broken, how to spot it, what to do, confidence |
 | [`analysis/*.txt`](analysis/), `*.json` | raw captured output for all six scenarios, plus a `--trace` example |
 | [`screenshots/`](screenshots/) | the terminal output for each scenario, rendered |
-| [`docs/diagrams/`](docs/diagrams/) | pipeline, forest and thread diagrams |
+| [`docs/diagrams/`](docs/diagrams/) | pipeline, Forest Data Structure and thread diagrams |
 | `cmd/triage` | flags and exit codes, nothing else |
 | `internal/` | `otel` → `classify` → `group` → `link` → `diagnose` → `report` |
 | `testdata/golden/` | rendered output, pinned |

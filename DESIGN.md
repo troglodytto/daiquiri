@@ -55,10 +55,10 @@ node-4 reported disk pressure. Two knots, and the rope ends.
 Four things follow from taking that seriously.
 
 **Every knot has to be checkable.** An edge you can't quote is a guess, and one
-bad knot poisons the whole rope. So every causal
-rule points at text in the capture. The node says `Node node-4 status is now:
-NodeHasDiskPressure`. The pod says `The node had condition: [DiskPressure]`.
-Those two lines are the edge, and you can go read them yourself.
+bad knot poisons the whole rope. So every causal rule points at text in the
+capture. The node says `Node node-4 status is now: NodeHasDiskPressure`. The pod
+says `The node had condition: [DiskPressure]`. Those two lines are the edge, and
+you can go read them yourself.
 
 **It has to run both directions.** Whoever's coordinating wants top-down: here's
 the root, here's everything under it, here's how wide. Whoever's on the hook for
@@ -76,15 +76,14 @@ Why was auth-service evicted?
 └── the pod was over its memory request
 ```
 
-Three leads and no answer. So the structure is a forest, one parent each, and
-joint causation is a limitation I'd rather state than paper over.
+Three leads and no answer. So the structure is a **Forest Data Structure**, one
+parent each, and joint causation is a limitation I'd rather state than paper
+over.
 
 **It has to end somewhere honest.** Either at a cause, or at "the capture starts
 here and I can't see past it". `04` and `06` end at a rollout. `02` ends at
 `OOMKilling` with nothing upstream, and the tool says _partially explained_
 instead of inventing a reason.
-
-The rest of this document is mostly the machinery that makes those four true.
 
 ![pulling the thread](docs/diagrams/thread.svg)
 
@@ -157,15 +156,16 @@ Merging destroys information you can't get back.
 
 `max(count)` per event UID, summed.
 
-`k8s.event.count` is `1` for all 120,001 records here and every UID is unique,
-so `count == len(members)` in every test I can actually run. I implemented the
+`k8s.event.count` is `1` for every record here (120,001 lines across the six
+captures; 120,000 parse and one is deliberately malformed) and every UID is
+unique, so `count == len(members)` in every test I can actually run. I implemented the
 harder rule anyway. The brief says the tool has to survive a pipeline where the
 API server's `count` increments, and `+= count` double-counts there. Covered by
 a synthetic test, and the ledger says plainly that the corpus can't exercise it.
 
 ## Causality
 
-![two shapes the forest makes](docs/diagrams/forest-shapes.svg)
+![two shapes the Forest Data Structure makes](docs/diagrams/forest-shapes.svg)
 
 ### Every edge quotes something
 
@@ -220,9 +220,22 @@ largest true edge, half the smallest false one. One constant for all three
 rules, because per-rule windows would be tuned to this corpus and therefore
 overfitted to it.
 
-### The whole structure is one int per finding
+## The Forest Data Structure
+
+This is the piece of the design I'd defend longest, so it gets its own section.
 
 ![the parent array](docs/diagrams/forest-array.svg)
+
+### What it is
+
+A **Forest Data Structure** is a set of trees. Every node has at most one
+parent, and a node with no parent is a root. A single tree has exactly one root,
+so a Forest is the more general shape: it lets one capture hold several
+independent incidents at once, which `05-test-b` does (one node fault, plus a background eviction that
+belongs to nothing).
+
+The Forest Data Structure here holds **one `int` per finding**, and that's the
+entire representation:
 
 ```go
 type Forest struct {
@@ -232,22 +245,96 @@ type Forest struct {
 type Edge struct { Parent int; Kind Kind; Evidence string }
 ```
 
-`Parent == -1` is a root. `Build` only ever scans backwards from `i`, so
-`Edges[i].Parent < i` holds by construction, and almost everything I'd otherwise
-have to defend with code falls out of that one line. Cycles are structurally
-impossible, so there's no visited set and no error path to test. Sorting by time
-already _is_ the topological sort. `Children(i)` scans forward from `i+1`, so no
-adjacency lists and no allocation. `RootOf` is an integer loop over a slice
-that's already in cache: 2.3 ns, zero allocations at n=1000.
+`Edges[i].Parent` is the index of the finding that explains `Findings[i]`, and
+`-1` means nothing explains it. No pointers, no node objects, no adjacency
+lists, no allocation per edge. At n=10 the whole causal structure of a 16.5 MB
+capture is 10 integers.
 
-`Forest` wraps both slices instead of `Build` handing back a bare `[]Edge`. The
-two are index-coupled, and returning them separately makes "same length, same
-order" a convention that one misplaced `sort.Slice` breaks in silence. The
-failure would be a wrong diagnosis, never a crash. Only `Build` constructs the
-pair.
+### Why a Forest and not a graph
 
-n counts findings, which is 3 to 10 here. It tracks distinct failure modes, so a
-cluster emitting 10x the events has roughly the same n.
+Real causality is a DAG. Several things genuinely contribute to one failure. I
+chose a Forest anyway, because of what a second parent does to the output: it
+turns "pull the thread" into a branching interrogation with three leads and no
+answer. That argument is in [the thread](#the-thread) above.
+
+The cost is that joint causation can't be expressed, and I'd rather write that
+down than let it be discovered.
+
+### The invariant is where all the value is
+
+The findings are sorted ascending by first occurrence, and `Build` only ever
+scans **backwards** from `i` looking for a parent. So:
+
+```
+Edges[i].Parent < i          for every i, by construction
+```
+
+That single line is doing most of the work in this design. Everything below is a
+consequence of it rather than code I had to write:
+
+| Property | Why it holds for free |
+|---|---|
+| **Cycles are impossible** | a parent is always at a lower index, so a cycle would need `i < i`. No visited set, no cycle check, no error path, and nothing to unit-test |
+| **`Findings` is already topologically ordered** | sorting by time *is* the topological sort, so any walk that needs parents-before-children just iterates the slice |
+| **`Children(i)` needs no index** | scan forward from `i+1`. No adjacency list to build, no map to allocate, nothing to keep in sync |
+| **`RootOf(i)` is an integer loop** | `for Parent != -1 { i = Parent }` over a slice already in cache. **2.3 ns, zero allocations** at n=1000 |
+| **Effects can never precede causes** | the ordering enforces it, which is exactly the property that killed the `Node`-in-the-key idea (D-12) |
+
+I've written cycle detection into graph code before. Here there's nothing to
+detect, because the layout makes the bad state unrepresentable.
+
+### Why `Forest` wraps both slices
+
+`Build` could hand back a bare `[]Edge` and let the caller keep the findings.
+The two are index-coupled, and returning them separately makes "same length,
+same order" an unenforced convention that one misplaced `sort.Slice` breaks in
+silence. The failure would be a **wrong diagnosis**, never a crash, which is the
+worst kind. Only `Build` constructs the pair, and `diagnose.Chart` embeds the
+whole thing rather than copying pieces out of it.
+
+### What it cost, measured
+
+`link.Build` is a backwards scan per finding, so the worst case is quadratic.
+Benchmarked on findings synthesised in the shape of a real capture:
+
+| n (findings) | ns/op | B/op | allocs/op |
+|---|---|---|---|
+| **10** (the real working point) | 29,868 | 3,634 | 51 |
+| 100 | 1,411,987 | 130,530 | 1,561 |
+| 1,000 | 32,289,829 | 1,497,458 | 17,766 |
+
+Ten times the findings costs 47× then 23×, rather than the 100× a true `O(n²)`
+would, because the scan stops at the first match and most findings find a parent
+within a few steps.
+
+**n stays small for a structural reason.** It counts *findings*, which are
+distinct `(workload, namespace, reason, rule)` tuples, meaning distinct failure
+modes. A cluster emitting ten times the events has roughly the same number of
+those. Observed across all six captures: 20,000 records in, 3 to 10 findings
+out. The quadratic term is over a quantity that doesn't track input size.
+
+### What I rejected, and why the Forest won
+
+| Alternative | Why it lost |
+|---|---|
+| **A graph library** | n is 3 to 10. The dependency would be larger than the structure |
+| **Union-find** | its physical form is this same `parent []int`, and both optimisations disqualify it. Path compression deletes the intermediate hops, which **are the product**. Union by rank picks whichever parent balances the tree, when I need the parent that's *true*. Strip both and you have the Forest Data Structure |
+| **Interval tree / sweep line** | they answer "which intervals overlap", which is the wrong question here in both directions. Causes are instants and effects begin afterwards, so every deploy edge and the whole 05 incident has **zero** overlap. Overlap would miss the four best diagnoses in the corpus and invent a link between a memory leak and an unrelated probe failure |
+| **Two-arena layout** (index ranges into flat occurrence arrays) | a cache-locality optimisation for a working set of ≤227 records that fits in ~30 KB regardless |
+
+**What would force a real graph:** multiple parents, cycles, reachability or
+shortest-path at scale, or incremental update as records stream. None apply. If
+joint causation ever needs expressing, that's the trigger, and it's a rewrite of
+this layer rather than a patch to it.
+
+### The one gap, named
+
+If a capture starts *after* its cause, you get orphans. Had `05` begun at
+10:15:10 the `NodeHasDiskPressure` record would be missing, leaving six
+evictions all naming `[DiskPressure]` on node-4: obviously one incident, six
+roots. Handling it is about 20 lines grouping orphans by stated cause and shared
+dimension under a synthetic root. A map, no library. Deferred because no capture
+here needs it.
 
 ## Telling background apart from a real problem
 
@@ -266,7 +353,8 @@ metric, three different correct verdicts:
 | 05      | `auth-service` Evicted (disk)    | 1   | 1    | 0s   | node-4 | 0        | keep             |
 | 05      | `node-4` NodeHasDiskPressure     | 1   | 0    | 0s   | none   | 6        | **lead with it** |
 
-Count, pod count and span can't tell those apart. Position in the forest can. So
+Count, pod count and span can't tell those apart. Position in the Forest Data
+Structure can. So
 suppression is a conjunction of four clauses:
 
 ```
@@ -378,17 +466,9 @@ an optimisation would be a regression.
 - **Concurrency.** Sequential decode is ~140 ms against a 5-second budget. 35x
   headroom.
 - **A custom JSON parser or SIMD.** Same reason.
-- **A graph library.** n is 3 to 10.
-- **An interval tree or sweep line.** They answer "which intervals overlap",
-  which is the wrong question in both directions here. Causes are instants and
-  effects begin afterwards, so every deploy edge and the whole 05 incident has
-  zero overlap. Overlap would miss the four best diagnoses in the corpus and
-  invent a link between a memory leak and an unrelated probe failure.
-- **Union-find.** Its physical form is the same `parent []int`, and both of its
-  optimisations disqualify it. Path compression deletes the intermediate hops,
-  which are the product. Union by rank picks whichever parent balances the tree,
-  when what I need is the parent that's true. Strip both and you have this
-  forest.
+- **A graph library, union-find, an interval tree, a two-arena layout.** All
+  four argued out in [the Forest Data Structure](#the-forest-data-structure),
+  with the measurements.
 - **A numeric confidence score.** A score is a model, and a model needs
   calibration data that doesn't exist here. Two tiers, each defensible from the
   rule that fired.
@@ -407,7 +487,7 @@ it one. Tracked as O-04.
 
 **Joint causation can't be expressed.** A pod evicted from a full node that then
 can't reschedule because the cluster is CPU-starved has two real causes, and the
-forest picks one. Nothing in this corpus does that. All five failing captures
+Forest Data Structure picks one. Nothing in this corpus does that. All five failing captures
 are single chains. It's still a real edge of the model and it belongs here.
 
 **The same-pod rule links to any earlier finding sharing a pod**, so an
@@ -474,7 +554,7 @@ all and only ever shows up inside the _body_ of a `Failed` event. Or that
 image-pull retry. Both of those are one-line traps that quietly hand you a
 confident wrong answer, and neither is discoverable from the schema.
 
-And the forest. I'd used trees plenty, but a parent-array forest over a
+And the Forest Data Structure. I'd used trees plenty, but a parent array over a
 time-sorted slice was new to me, and it's the thing in this codebase I'm
 happiest with. One int per node. `Parent < i` makes cycles impossible by
 construction, so there's nothing to check and nothing to test. Sorting by time
