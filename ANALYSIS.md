@@ -45,7 +45,7 @@ The brief's checklist, and where to see each one hold.
 | No false positives on `01-healthy` | `0 findings`, `3 suppressed as background`, exit `0` |
 | Identifies the primary issue in 02 and 03 | `recommendation-service` OOM, `payment-service` image pull, both with the signature quoted |
 | Distinguishes transient from sustained | `transient blip` needs `count ≤ 10 ∧ pods ≤ 1 ∧ span < 60s` and no causal edge in either direction |
-| 20K records in under 5 seconds | ~140 ms measured, about 35× headroom |
+| 20K records in under 5 seconds | ~130 ms measured, about 35× of headroom |
 | Report covers 04, 05 and 06 | the three files above |
 
 ## Three judgements the tool leaves to you

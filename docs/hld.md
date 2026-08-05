@@ -70,7 +70,8 @@ walks back to where the failure started.
 
 Data flows one way. `internal/event` is the leaf and imports nothing internal.
 `internal/triage` wires the stages; `cmd/triage` handles flags and exit codes
-only. Package boundaries beyond Step 2 are **open** (`docs/decisions.md` O-01).
+only. Every package states its responsibility, permitted dependencies and
+prohibitions in its own `doc.go`.
 
 ---
 

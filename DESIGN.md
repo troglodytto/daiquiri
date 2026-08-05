@@ -463,8 +463,8 @@ fields.
 Each of these was considered and rejected on evidence, so bringing one back as
 an optimisation would be a regression.
 
-- **Concurrency.** Sequential decode is ~140 ms against a 5-second budget. 35x
-  headroom.
+- **Concurrency.** Sequential decode is ~130 ms against a 5-second budget, over
+  35x of headroom.
 - **A custom JSON parser or SIMD.** Same reason.
 - **A graph library, union-find, an interval tree, a two-arena layout.** All
   four argued out in [the Forest Data Structure](#the-forest-data-structure),
@@ -520,7 +520,7 @@ past reading a file, into a real receiver or something that talks to the API
 server, Rust would mean reimplementing client-go badly.
 
 The problem doesn't want what Rust is for, either. No shared mutable state, no
-lifetime puzzle, nothing running hot. It's a 140 ms batch job that allocates
+lifetime puzzle, nothing running hot. It's a 130 ms batch job that allocates
 15 MB and exits. Borrow checking earns you nothing on a program with one
 goroutine and no aliasing.
 
@@ -534,6 +534,35 @@ string fields, where an enum would have the compiler check exhaustiveness for
 me. So I wrote a property test instead: every reason's final rule is
 unconditional, so classification can never fall through. That's the Go answer
 and it's a good one. It spends a test where another language spends a keyword.
+
+## How I worked with the AI
+
+The brief says AI assistants are encouraged, so it's worth being exact about
+how. One loop:
+
+> I design. I architect. You code. I review. You test. I review. I test. We
+> document. Continue.
+
+Design and architecture are mine and land in the ledger when they're taken.
+Implementation is delegated and reviewed. Tests get written, reviewed, then run
+by me independently. Nothing is done until `make verify` passes and the output
+has been pasted.
+
+I did consider the other shape: a Co-AI driven workflow where the agent drives
+design and implementation together and I review what comes out. It's faster per
+commit. It also fails the thing this is graded on. 60% of the marks are
+reasoning, and reasoning you didn't do is reasoning you can't defend when
+someone asks why the window is 300 seconds and not 60.
+
+The split tracks where verification is cheap. Delegating implementation under
+review is easy to check, because the tests either pass or they don't. Delegating
+a threshold isn't, because a plausible constant looks exactly like a justified
+one right up until you measure it.
+
+Two entries in this ledger record claims I published and then withdrew when the
+measurement disagreed: 02's leak being *accelerating*, and `link.Build` at
+n=1,000 costing "a few ms". Neither correction happens if the design pass and
+the review pass are the same pass.
 
 ## What this project sharpened
 

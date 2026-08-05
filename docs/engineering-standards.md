@@ -91,8 +91,8 @@ section exists to prevent.
 Decisions already taken, recorded so no future change reintroduces one as an
 improvement.
 
-- **No concurrency or fan-out.** Sequential decode is ~140 ms against a 5-second
-  budget, which is 35× of headroom. Goroutines would add coordination and race
+- **No concurrency or fan-out.** Sequential decode is ~130 ms against a 5-second
+  budget, which is over 35× of headroom. Goroutines would add coordination and race
   surface for no measurable gain. If a benchmark ever contradicts this, change
   the benchmark's verdict first, then the code.
 - **No SIMD, no vectorisation, no custom JSON parser.** Same reason.

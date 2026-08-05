@@ -37,13 +37,19 @@ logic 15% · output clarity 10% · code quality + tests 10% · docs 5%.
 | 5. render | `internal/report` | table, incident tree, `--json`, `--trace`, all-clear. done, tested, goldens pinned |
 
 `internal/triage` orchestrates. `cmd/triage` does flags and exit codes only.
+Every package carries a `doc.go` stating its responsibility, permitted
+dependencies and prohibitions; the ledger quotes those prohibitions, so they are
+normative rather than decorative.
 
-**Verification as of the last commit:** `gofmt` clean, `go vet` clean,
-`go test ./... -race` green across 7 packages.
+**Verification:** `gofmt` clean, `go vet` clean, `golangci-lint` 0 issues, and
+`go test ./... -race` green across 8 packages. The docs carry their own sweep:
+every markdown link and anchor resolves, every SVG parses, every D-number
+referenced anywhere resolves to an entry, and every count quoted in prose is
+re-derived from `--json`.
 
-**Benchmarks** (`go test -bench . -benchmem`): whole pipeline ~133 ms for a
-16.5 MB / 20,000-record capture at 124 MB/s, 15 MB and 339k allocations. Against
-the brief's 5-second budget that is **37x headroom**. `link.Build` at the real
+**Benchmarks** (`go test -bench . -benchmem`): whole pipeline **127-134 ms** across
+the six captures, 124-131 MB/s, 15 MB and ~339k allocations. Against the
+brief's 5-second budget that is **over 35x headroom**. `link.Build` at the real
 working point (n=10 findings) is 29.9 µs / 51 allocs; `RootOf` is 2.3 ns and
 allocation-free. `diagnose.Build` at n=10 is 670 ns / 11 allocs, and 1.7 ms at a
 synthetic n=1,000 chain, two orders of magnitude past anything a capture
@@ -369,9 +375,9 @@ Nothing blocking. Open items, in rough order of value:
   measurably weaker on a cluster it hasn't seen.
 - the undirected-merge case in D-38: orphan findings sharing a stated cause with
   no visible parent. ~20 lines and a map. Does not occur in this corpus.
-- `docs/decisions.md` is 1,900 lines and was written in the register the author
-  has since asked the codebase comments to drop. The content is right; the prose
-  has not had the same pass the source did.
+- test-file comments had a voice pass; the source comments keep contrasts like
+  `Count is occurrences, not records`, which are definitional and carry
+  information. A stricter sweep would flatten them and make them worse.
 
 ### 8.5 The working loop
 

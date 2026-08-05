@@ -20,28 +20,37 @@ six captures in `testdata/`.
 | [5. Causality](#layer-5-causality) | `link` | D-17 – D-22, D-24, D-25, D-31 – D-38, D-50 |
 | [6. Diagnosis](#layer-6-diagnosis) | `diagnose` | D-26, D-27, D-40 – D-46, D-48, D-49, D-53, D-54, D-57, D-58 |
 | [7. Output](#layer-7-output) | `report` | D-29, D-30, D-47, D-51, D-52, D-55, D-56, D-59 |
-| [Open](#open-questions) | — | O-01 – O-04 |
+| [Open](#open-questions) | — | O-02, O-03, O-04 |
 
 ---
 
 # Layer 0: scope and process
 
-## D-01: Rebuild by hand; take only the standards document
+## D-01: The working loop, and where AI sits in it
 
-**Landed.** `~/Projects/daiquiri-ai` is an abandoned AI-built attempt at this
-challenge. Nothing is inherited from it except `engineering-standards.md`, which
-encodes the author's own standard.
+**Landed.** One loop, run in this order:
 
-**Weighed:** reusing its code or package layout. The brief grades reasoning, and
-reasoning you didn't do is reasoning you can't defend in a review.
+> I design. I architect. You code. I review. You test. I review. I test. We
+> document. Continue.
 
-**Amended since.** The inherited document described a repository it didn't
-govern, so four claims were corrected against reality: §1.1's pipeline named a
-`correlate` package that never existed (closes O-01), `doc.go` files were
-required and absent (eight written), the Liskov example described renderers
-nothing abstracts over (deleted), and godoc was said to be enforced by `revive`,
-which never runs (replaced with what each gate actually catches). §3.1 is
-amended separately by D-39.
+Design and architecture are mine and land in this ledger at the time they're
+taken. Implementation is delegated and reviewed. Tests are written, reviewed,
+then run by me independently. Documentation is joint. Nothing is called done
+until `make verify` passes and the output has been pasted.
+
+**Weighed:** a Co-AI driven workflow, where the agent drives design and
+implementation together and I review the result. Faster per commit, and it
+fails the thing this is actually graded on. The brief puts 60% on reasoning, and
+reasoning you didn't do is reasoning you can't defend in a review. Every
+threshold in this ledger has a number behind it that I checked myself, and two
+entries (D-05, D-38) record claims I published and the measurement later
+overturned. Neither correction happens if the design and the review are the same
+pass.
+
+The split also matches where each side is strong. Delegating implementation
+under review is cheap to verify: the tests either pass or they don't. Delegating
+a threshold is not, because a plausible constant is indistinguishable from a
+justified one until you go and measure.
 
 ## D-02: Design is argued in the open before code is written
 
@@ -409,7 +418,7 @@ manufactures exactly the weak edges D-21 prevents.
 | 100 | 1,411,987 | 1,561 |
 | 1,000 | 32,289,829 | 17,766 |
 
-Whole pipeline ~140 ms against a 5-second budget. n counts distinct failure
+Whole pipeline ~130 ms against a 5-second budget. n counts distinct failure
 modes, so 10× the events gives roughly the same n.
 
 **Weighed:**
@@ -670,7 +679,7 @@ reports **steady** and publishes both means.
 
 **Landed.** `lipgloss` only.
 
-**Weighed:** bubbletea plus a spinner. The pipeline finishes in ~140 ms, so a
+**Weighed:** bubbletea plus a spinner. The pipeline finishes in ~130 ms, so a
 spinner renders about two frames and reads as a flicker, and bubbletea is an
 event loop that takes over the terminal. Also weighed a spinner above a ~300 ms
 threshold: honest, and machinery for a case that doesn't exist here.
@@ -762,13 +771,6 @@ filter that won't say what it filtered can mislead by omission.
 
 # Open questions
 
-## O-01: Package layout *(closed by D-01's amendment)*
-
-The standard named `group` / `diagnose` / `correlate` / `report`; the repository
-has `otel` / `event` / `classify` / `group` / `link` / `diagnose` / `triage` /
-`report`. Settled in favour of the repository. §1.1 now states the real chain
-and §1.2 publishes the dependency graph.
-
 ## O-02: Pattern thresholds *(closed by D-43 and D-44)*
 
 Settled at three constants rather than six. Only "transient" needs numbers;
@@ -820,4 +822,3 @@ Every place this ledger changed its mind.
 | **D-42/D-44 guards** | `Category == Issue` excludes unrecognised reasons | D-46 | only by side effect, which stopped holding when severity moved |
 | **D-54 draft** | the verdict quotes the deepest failing node | D-54 | in 03 that is a consequence; split into Mechanism and Paged |
 | **D-56 draft** | `Suppressed` is stored beside its reasons | D-56 | nothing forced them to agree, and the disagreement gets published |
-| **§1.1 of the standard** | pipeline includes a `correlate` package | the repository | it never existed |

@@ -1,7 +1,7 @@
 # daiquiri -- Kubernetes event triage
 #
 # `make verify` is the gate. Nothing is "done" until it passes clean.
-# See AGENTS.md for what each gate is protecting.
+# See docs/engineering-standards.md for what each gate is protecting.
 
 BINARY      := daiquiri
 PKG         := ./...

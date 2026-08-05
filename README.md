@@ -350,8 +350,8 @@ Diagrams live in [`docs/diagrams/`](docs/diagrams/) as SVG plus editable
 
 ## Performance
 
-A 16.5 MB, 20,000-record capture is processed in **~140 ms**, about 120 MB/s,
-15 MB allocated. The brief's budget is 5 seconds, so there's roughly 35× of
+A 16.5 MB, 20,000-record capture is processed in **~130 ms**, about 125 MB/s,
+15 MB allocated. The brief's budget is 5 seconds, so there's over 35× of
 headroom. Every record is retained in memory, including the ~19,800 filtered as
 noise, because lifecycle events are the evidence a trail gets built from.
 
