@@ -526,7 +526,7 @@ goroutine and no aliasing.
 
 What Go actually gave me: streaming `encoding/json` with no dependency,
 `sort.Slice` over a flat slice being the entire causal structure, testing and
-benchmarking in the standard toolchain with zero config, and a 3.6 MB static
+benchmarking in the standard toolchain with zero config, and a 3.5 MB static
 binary I can hand to anyone.
 
 The one thing I missed is sum types. The taxonomy is a table of structs with

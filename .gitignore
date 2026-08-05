@@ -1,4 +1,3 @@
-output/
 bin/
-# Local visual preview of the incident view, regenerated on demand.
-tree-ui-preview.html
+coverage.out
+coverage.html
